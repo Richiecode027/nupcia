@@ -155,57 +155,6 @@
 </head>
 <body>
 
-<!-- ===== Pantalla de conexión ===== -->
-<div class="overlay" id="setup" hidden>
-  <div class="setup-card">
-    <div class="brand">Nupcia</div>
-    <h1>Conecta su espacio</h1>
-    <p class="lead">Sincronización en tiempo real para los dos. Configúralo una vez (gratis) y comparte el enlace con tu pareja.</p>
-    <ol class="steps">
-      <li>Entra a <a href="https://supabase.com/dashboard" target="_blank" rel="noopener">supabase.com/dashboard</a> y crea un proyecto nuevo (ya tienes cuenta).</li>
-      <li>Abre el <b>SQL Editor</b>, pega el script de abajo y presiona <b>Run</b>. Crea la tabla y activa el tiempo real.</li>
-      <li>Ve a <b>Project Settings → API</b> y copia la <b>Project URL</b> y la clave <b>anon public</b>.</li>
-      <li>Pégalas aquí abajo y presiona <b>Conectar</b>.</li>
-    </ol>
-
-    <details class="help" open>
-      <summary>📋 Script SQL — cópialo y ejecútalo en Supabase</summary>
-      <pre id="sqlBox">create table if not exists espacios (
-  id text primary key,
-  data jsonb,
-  updated_at timestamptz default now()
-);
-
-alter table espacios enable row level security;
-
-drop policy if exists "acceso por enlace" on espacios;
-create policy "acceso por enlace" on espacios
-  for all using (true) with check (true);
-
-do $$
-begin
-  alter publication supabase_realtime add table espacios;
-exception when others then null;
-end $$;</pre>
-      <button class="btn" type="button" style="margin-top:8px" onclick="copySql()">Copiar script</button>
-    </details>
-
-    <label>Project URL</label>
-    <input id="urlInput" placeholder="https://xxxxx.supabase.co">
-    <label>Clave pública (anon public key)</label>
-    <input id="keyInput" placeholder="eyJhbGciOiJI...">
-    <label>Código del espacio compartido</label>
-    <input id="spaceInput" placeholder="nupcia-...">
-
-    <div class="err" id="setupErr"></div>
-    <div style="display:flex; gap:8px; margin-top:6px">
-      <button class="btn primary" style="flex:1" onclick="doConnect()">Conectar y sincronizar</button>
-    </div>
-    <p class="muted" style="font-size:12px; text-align:center; margin-top:14px">
-      ¿Tu pareja ya lo configuró? Pídele el <b>enlace para conectar</b> y ábrelo: quedas sincronizado al instante.
-    </p>
-  </div>
-</div>
 
 <!-- ===== App ===== -->
 <header>
@@ -342,10 +291,9 @@ end $$;</pre>
     </section>
 
     <section class="block">
-      <div class="sec-head"><div><h2>Respaldo y espacio</h2><div class="desc">Descarga una copia o cambia de espacio</div></div></div>
+      <div class="sec-head"><div><h2>Respaldo</h2><div class="desc">Descarga una copia local de todos los datos</div></div></div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Descargar respaldo (.json)</button>
-        <button class="btn ghost" style="color:var(--danger); margin-left:auto" onclick="leaveSpace()">Salir / cambiar espacio</button>
       </div>
     </section>
   </div>
@@ -380,45 +328,13 @@ function defaults(){
 }
 let S = defaults();
 
-/* ---------- Conexión Supabase ---------- */
-const CFG_KEY="nupcia_cfg", CACHE_KEY="nupcia_cache";
-let URL_=null, KEY_=null, SPACE=null, SB=null, channel=null, DEVICE=uid()+uid(),
+/* ---------- Conexión Supabase (credenciales fijas) ---------- */
+const CACHE_KEY="nupcia_cache";
+const URL_ = "https://pbjthkfiuapwnmwhlrxp.supabase.co";
+const KEY_ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBianRoa2ZpdWFwd25td2hscnhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDgzMzQsImV4cCI6MjA5NzE4NDMzNH0.do3K1RXfmCqi3WwqFTOBfdDdhGL-6mn6ZFqktgN3PuA";
+const SPACE = "nupcia-principal";
+let SB=null, channel=null, DEVICE=uid()+uid(),
     applyingRemote=false, saveT=null, pendingRemote=null, ready=false;
-
-function b64e(s){ return btoa(unescape(encodeURIComponent(s))); }
-function b64d(s){ return decodeURIComponent(escape(atob(s))); }
-
-function loadCfg(){
-  // 1) ¿enlace mágico en la URL?
-  const h=location.hash;
-  if(h.startsWith("#c=")){
-    try{
-      const d=JSON.parse(b64d(h.slice(3)));
-      if(d.url && d.key && d.space){
-        localStorage.setItem(CFG_KEY, JSON.stringify(d));
-        history.replaceState(null,"",location.pathname+location.search);
-        return d;
-      }
-    }catch(e){}
-  }
-  // 2) guardado localmente
-  try{ const r=localStorage.getItem(CFG_KEY); if(r) return JSON.parse(r); }catch(e){}
-  return null;
-}
-
-function doConnect(){
-  const errEl=document.getElementById("setupErr"); errEl.textContent="";
-  const url=document.getElementById("urlInput").value.trim().replace(/\/+$/,"");
-  const key=document.getElementById("keyInput").value.trim();
-  let space=document.getElementById("spaceInput").value.trim();
-  if(!/^https:\/\/.+\.supabase\.(co|in)/.test(url)){ errEl.textContent="La URL debe verse como https://xxxx.supabase.co"; return; }
-  if(key.length<30){ errEl.textContent="Pega la clave pública (anon public key) completa."; return; }
-  if(!space) space=genSpace();
-  localStorage.setItem(CFG_KEY, JSON.stringify({url,key,space}));
-  location.reload();
-}
-function genSpace(){ return "nupcia-"+Math.random().toString(36).slice(2,7)+"-"+Math.random().toString(36).slice(2,6); }
-function copySql(){ const t=document.getElementById("sqlBox").textContent; navigator.clipboard.writeText(t).then(()=>toast("Script copiado ✓"),()=>{ const r=document.createRange(); r.selectNode(document.getElementById("sqlBox")); getSelection().removeAllRanges(); getSelection().addRange(r); }); }
 
 function setStatus(state, text){
   const el=document.getElementById("status");
@@ -427,13 +343,6 @@ function setStatus(state, text){
 }
 
 function startApp(){
-  const saved=loadCfg();
-  if(!saved){
-    document.getElementById("spaceInput").value=genSpace();
-    document.getElementById("setup").hidden=false;
-    return;
-  }
-  URL_=saved.url; KEY_=saved.key; SPACE=saved.space;
   // carga inmediata desde caché para no ver pantalla vacía
   try{ const c=localStorage.getItem(CACHE_KEY); if(c){ S=Object.assign(defaults(), JSON.parse(c)); } }catch(e){}
   renderAll();
@@ -504,8 +413,7 @@ function save(immediate){
 
 /* ---------- Enlace para compartir ---------- */
 function shareUrl(){
-  if(!URL_||!KEY_||!SPACE) return location.href;
-  return location.origin+location.pathname+"#c="+b64e(JSON.stringify({url:URL_, key:KEY_, space:SPACE}));
+  return location.origin+location.pathname;
 }
 function copyShare(){
   const url=shareUrl();
@@ -518,9 +426,6 @@ function shareWhatsapp(){
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");
 }
 function leaveSpace(){
-  if(confirm("Vas a desconectar este dispositivo de este espacio. Los datos siguen guardados en la nube; podrás volver con el enlace.\n\n¿Continuar?")){
-    localStorage.removeItem(CFG_KEY); localStorage.removeItem(CACHE_KEY); location.reload();
-  }
 }
 
 /* ---------- Utilidades UI ---------- */
