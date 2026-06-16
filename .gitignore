@@ -2,6 +2,16 @@
 nupcia-*.json
 respaldo-*.json
 
+# Archivos temporales de carga de datos (contienen datos personales — NO subir)
+seed.js
+seed_data.json
+payload_safe.txt
+cargar_datos.html
+node_modules/
+package-lock.json
+package.json
+_check.js
+
 # Sistema
 Thumbs.db
 .DS_Store

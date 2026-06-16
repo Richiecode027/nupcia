@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nupcia · Planeador de boda</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c8a96a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nupcia">
+<link rel="apple-touch-icon" href="icon.svg">
 <style>
   :root{
     --blush:#f7ede9; --blush-deep:#efd9d1; --sage:#8a9a8b; --sage-light:#dfe6df;
@@ -151,10 +157,66 @@
   details.help summary{cursor:pointer; color:var(--gold-deep)}
   details.help pre{background:#2c2622; color:#f0e9e2; padding:12px; border-radius:10px; overflow:auto; font-size:12px}
   @media(max-width:560px){header .names{font-size:24px} .stat .v{font-size:23px} .setup-card{padding:22px}}
+
+  /* Buscador y filtros */
+  .filters{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center}
+  .filters input.search{flex:1; min-width:180px; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-family:inherit; font-size:14px}
+  .filters input.search:focus{outline:none; border-color:var(--sage)}
+  .filters select{border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-family:inherit; font-size:13.5px; cursor:pointer; background:#fff}
+  .filters .count-lbl{font-size:13px; color:var(--muted); margin-left:auto}
+
+  /* Mesas */
+  .mesas-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:16px}
+  .mesa{border:2px dashed var(--line); border-radius:14px; padding:14px; background:#fff; transition:.15s; min-height:120px}
+  .mesa.dragover{border-color:var(--sage); background:var(--sage-light)}
+  .mesa.full{border-style:solid; border-color:var(--blush-deep)}
+  .mesa-head{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px}
+  .mesa-head input.mesa-name{border:none; background:transparent; font-family:Georgia,serif; font-size:16px; font-weight:600; color:var(--ink); width:100%; padding:2px 4px; border-radius:6px}
+  .mesa-head input.mesa-name:focus{outline:none; background:var(--bg)}
+  .mesa-cap{font-size:12px; color:var(--muted); white-space:nowrap}
+  .mesa-cap.over{color:var(--danger); font-weight:700}
+  .chip{display:inline-flex; align-items:center; gap:5px; background:var(--blush); border:1px solid var(--line); border-radius:20px;
+    padding:4px 10px; font-size:13px; margin:3px 3px 0 0; cursor:grab}
+  .chip:active{cursor:grabbing}
+  .chip .x{cursor:pointer; color:var(--muted); font-weight:700; margin-left:2px}
+  .chip .x:hover{color:var(--danger)}
+  .chip.assigned{background:var(--sage-light)}
+  .pool{border:1px solid var(--line); border-radius:14px; padding:14px; background:#fbf7f4; margin-top:6px; min-height:60px}
+  .pool.dragover{border-color:var(--sage); background:var(--sage-light)}
+
+  /* Cronograma */
+  .timeline{margin-top:8px}
+  .tl-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line)}
+  .tl-row:last-child{border-bottom:none}
+  .tl-row input.tl-time{width:110px; border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:14px; font-weight:600; color:var(--gold-deep)}
+  .tl-row input.tl-act{flex:1; border:1px solid transparent; background:transparent; font-family:inherit; font-size:14.5px; padding:7px 9px; border-radius:8px; color:var(--ink)}
+  .tl-row input:focus{outline:none; border-color:var(--sage); background:#fff}
+
+  /* PIN gate */
+  .pin-overlay{position:fixed; inset:0; z-index:300; background:linear-gradient(135deg,var(--blush),var(--blush-deep));
+    display:flex; align-items:center; justify-content:center; padding:24px}
+  .pin-overlay[hidden]{display:none}
+  .pin-card{background:#fff; border-radius:18px; box-shadow:var(--shadow); padding:34px; text-align:center; max-width:340px; width:100%}
+  .pin-card h2{font-size:24px; margin-bottom:6px}
+  .pin-card input{width:100%; text-align:center; letter-spacing:6px; font-size:24px; border:1px solid var(--line);
+    border-radius:12px; padding:12px; margin:16px 0; font-family:inherit}
+  .pin-card input:focus{outline:none; border-color:var(--sage)}
 </style>
 </head>
 <body>
 
+<!-- ===== Bloqueo por PIN ===== -->
+<div class="pin-overlay" id="pinGate" hidden>
+  <div class="pin-card">
+    <div class="brand" style="font-size:12px; letter-spacing:4px; text-transform:uppercase; color:var(--gold-deep)">Nupcia</div>
+    <h2>💍 Acceso protegido</h2>
+    <p class="muted" style="font-size:13.5px">Ingresa el PIN para abrir la boda</p>
+    <input id="pinInput" inputmode="numeric" maxlength="8" autocomplete="off"
+      onkeydown="if(event.key==='Enter')tryPin()">
+    <button class="btn primary" style="width:100%" onclick="tryPin()">Entrar</button>
+    <div class="err" id="pinErr"></div>
+  </div>
+</div>
 
 <!-- ===== App ===== -->
 <header>
@@ -172,7 +234,9 @@
   <button data-tab="resumen" class="active">✦ Resumen</button>
   <button data-tab="presupuesto">Presupuesto</button>
   <button data-tab="invitados">Invitados</button>
+  <button data-tab="mesas">Mesas</button>
   <button data-tab="tareas">Tareas</button>
+  <button data-tab="cronograma">Cronograma</button>
   <button data-tab="proveedores">Proveedores</button>
   <button data-tab="notas">Notas</button>
   <button data-tab="ajustes">Ajustes</button>
@@ -218,6 +282,17 @@
         <button class="btn primary" onclick="addGuest()">+ Agregar invitado</button>
       </div>
       <div class="cards" id="guestStats" style="margin-bottom:14px"></div>
+      <div class="filters">
+        <input class="search" id="guestSearch" placeholder="🔍 Buscar por nombre…" oninput="renderGuests()">
+        <select id="guestGroupFilter" onchange="renderGuests()"><option value="">Todos los grupos</option></select>
+        <select id="guestRsvpFilter" onchange="renderGuests()">
+          <option value="">Toda confirmación</option>
+          <option value="pend">Pendientes</option>
+          <option value="si">Confirmados</option>
+          <option value="no">No asisten</option>
+        </select>
+        <span class="count-lbl" id="guestCountLbl"></span>
+      </div>
       <div class="scroll">
         <table class="tbl" id="guestTbl">
           <thead><tr><th style="width:26%">Nombre</th><th>Grupo</th>
@@ -229,6 +304,19 @@
     </section>
   </div>
 
+  <!-- MESAS -->
+  <div class="panel" id="tab-mesas">
+    <section class="block">
+      <div class="sec-head">
+        <div><h2>Acomodo de mesas</h2><div class="desc">Arrastra a cada invitado a su mesa. En el celular usa el menú de cada nombre.</div></div>
+        <button class="btn primary" onclick="addTable()">+ Agregar mesa</button>
+      </div>
+      <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span></div>
+      <div class="pool" id="mesaPool" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'')"></div>
+      <div class="mesas-grid" id="mesasGrid"></div>
+    </section>
+  </div>
+
   <!-- TAREAS -->
   <div class="panel" id="tab-tareas">
     <section class="block">
@@ -237,6 +325,17 @@
         <button class="btn" onclick="resetTasks()">↺ Restaurar lista sugerida</button>
       </div>
       <div id="tasksWrap"></div>
+    </section>
+  </div>
+
+  <!-- CRONOGRAMA -->
+  <div class="panel" id="tab-cronograma">
+    <section class="block">
+      <div class="sec-head">
+        <div><h2>Cronograma del día</h2><div class="desc">Hora por hora: ceremonia, fiesta y momentos clave</div></div>
+        <button class="btn primary" onclick="addSchedule()">+ Agregar momento</button>
+      </div>
+      <div class="timeline" id="timeline"></div>
     </section>
   </div>
 
@@ -286,8 +385,10 @@
         <div class="field"><label>Fecha de la boda</label><input id="sDate" type="date"></div>
         <div class="field"><label>Lugar</label><input id="sPlace" placeholder="Ciudad / hacienda / salón"></div>
         <div class="field"><label>Presupuesto total ($)</label><input id="sBudget" type="number" min="0" step="100" placeholder="0"></div>
+        <div class="field"><label>PIN de acceso (opcional)</label><input id="sPin" inputmode="numeric" maxlength="8" placeholder="Vacío = sin PIN"></div>
       </div>
       <div style="margin-top:14px"><button class="btn primary" onclick="saveSettings()">Guardar datos</button></div>
+      <p class="muted" style="font-size:12px; margin-top:10px">El PIN pide una clave al abrir la app. Es una protección ligera (no cifrado), suficiente para uso casual.</p>
     </section>
 
     <section class="block">
@@ -323,8 +424,17 @@ function seedTasks(){
   ];
   const out=[]; data.forEach(([phase,items])=>items.forEach(t=>out.push({id:uid(),title:t,phase,due:"",done:false}))); return out;
 }
+function seedSchedule(){
+  return [
+    {id:uid(),time:"5:00 PM",activity:"Inicio del culto / ceremonia"},
+    {id:uid(),time:"6:30 PM",activity:"Acomodo de invitados"},
+    {id:uid(),time:"7:00 PM",activity:"Fotos de novios"},
+    {id:uid(),time:"7:30 PM",activity:"Entrada de los novios"},
+    {id:uid(),time:"8:00 PM",activity:"Cena"},
+  ];
+}
 function defaults(){
-  return {settings:{name1:"",name2:"",date:"",place:"",budget:0}, budget:[], guests:[], vendors:[], notes:"", tasks:seedTasks(), _ts:0};
+  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:""}, budget:[], guests:[], vendors:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
 }
 let S = defaults();
 
@@ -506,9 +616,25 @@ function renderBudget(){
 
 /* ---------- Invitados ---------- */
 function addGuest(){ S.guests.push({id:uid(),name:"",group:"",count:1,rsvp:"pend",table:"",contact:""}); save(); renderGuests(); }
+function tableName(id){ const t=(S.tables||[]).find(x=>x.id===id); return t?t.name:""; }
 function renderGuests(){
+  // poblar filtro de grupos conservando selección
+  const groups=[...new Set(S.guests.map(g=>g.group).filter(x=>x))].sort();
+  const gsel=document.getElementById("guestGroupFilter");
+  if(gsel){ const cur=gsel.value; gsel.innerHTML='<option value="">Todos los grupos</option>'+groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join(""); gsel.value=cur; }
+
+  const search=(document.getElementById("guestSearch")?.value||"").toLowerCase().trim();
+  const gf=gsel?gsel.value:"";
+  const rf=document.getElementById("guestRsvpFilter")?.value||"";
+  const list=S.guests.filter(g=>{
+    if(search && !(g.name||"").toLowerCase().includes(search)) return false;
+    if(gf && g.group!==gf) return false;
+    if(rf && (g.rsvp||"pend")!==rf) return false;
+    return true;
+  });
+
   const tb=document.querySelector("#guestTbl tbody");
-  tb.innerHTML=S.guests.length?S.guests.map(x=>{
+  tb.innerHTML=list.length?list.map(x=>{
     const cls=x.rsvp==="si"?"rsvp-si":x.rsvp==="no"?"rsvp-no":"rsvp-pend";
     return `<tr>
       <td><input value="${esc(x.name)}" placeholder="Nombre y apellido" onchange="upd('guests','${x.id}','name',this.value)"></td>
@@ -518,9 +644,13 @@ function renderGuests(){
         <option value="pend" ${x.rsvp==="pend"?"selected":""}>Pendiente</option>
         <option value="si" ${x.rsvp==="si"?"selected":""}>Confirmado</option>
         <option value="no" ${x.rsvp==="no"?"selected":""}>No asiste</option></select></td>
-      <td><input value="${esc(x.table)}" placeholder="—" onchange="upd('guests','${x.id}','table',this.value)"></td>
+      <td><input value="${esc(tableName(x.table)||x.table)}" placeholder="—" readonly title="Asigna desde la pestaña Mesas" style="color:var(--muted)"></td>
       <td><input value="${esc(x.contact)}" placeholder="Tel / correo" onchange="upd('guests','${x.id}','contact',this.value)"></td>
-      <td><button class="icon" title="Eliminar" onclick="del('guests','${x.id}');renderGuests()">🗑</button></td></tr>`;}).join(""):`<tr><td colspan="7"><div class="empty">Aún no hay invitados. Agrega el primero.</div></td></tr>`;
+      <td><button class="icon" title="Eliminar" onclick="del('guests','${x.id}');renderGuests()">🗑</button></td></tr>`;}).join(""):`<tr><td colspan="7"><div class="empty">${S.guests.length?"Ningún invitado coincide con el filtro.":"Aún no hay invitados. Agrega el primero."}</div></td></tr>`;
+
+  const lbl=document.getElementById("guestCountLbl");
+  if(lbl) lbl.textContent=`Mostrando ${list.length} de ${S.guests.length}`;
+
   const people=S.guests.reduce((a,x)=>a+(+x.count||0),0),si=S.guests.filter(x=>x.rsvp==="si").reduce((a,x)=>a+(+x.count||0),0),no=S.guests.filter(x=>x.rsvp==="no").reduce((a,x)=>a+(+x.count||0),0),pend=people-si-no;
   document.getElementById("guestStats").innerHTML=`
     <div class="stat"><div class="k">Total invitados</div><div class="v">${people}</div></div>
@@ -562,6 +692,78 @@ function renderVendors(){
     <td><button class="icon" title="Eliminar" onclick="del('vendors','${x.id}');renderVendors()">🗑</button></td></tr>`).join(""):`<tr><td colspan="7"><div class="empty">Sin proveedores. Agrega lugar, banquete, fotografía…</div></td></tr>`;
 }
 
+/* ---------- Mesas (acomodo visual) ---------- */
+function addTable(){ if(!S.tables) S.tables=[]; S.tables.push({id:uid(),name:"Mesa "+(S.tables.length+1),seats:10}); save(); renderMesas(); }
+function updTable(id,field,val){ const t=S.tables.find(x=>x.id===id); if(!t) return; t[field]=field==="seats"?(+val||0):val; save(); renderMesas(); }
+function delTable(id){ if(!confirm("¿Eliminar esta mesa? Sus invitados volverán a «Sin asignar».")) return; S.tables=(S.tables||[]).filter(x=>x.id!==id); S.guests.forEach(g=>{ if(g.table===id) g.table=""; }); save(); renderMesas(); renderGuests(); }
+function assignGuest(id,tableId){ const g=S.guests.find(x=>x.id===id); if(!g) return; g.table=tableId; save(); renderMesas(); renderGuests(); }
+
+let dragGuestId=null;
+function dragGuest(e,id){ dragGuestId=id; try{ e.dataTransfer.setData("text/plain",id); e.dataTransfer.effectAllowed="move"; }catch(_){} }
+function mesaDragOver(e,el){ e.preventDefault(); el.classList.add("dragover"); try{ e.dataTransfer.dropEffect="move"; }catch(_){} }
+function mesaDrop(e,tableId){ e.preventDefault(); const id=dragGuestId||(e.dataTransfer&&e.dataTransfer.getData("text/plain")); document.querySelectorAll(".dragover").forEach(x=>x.classList.remove("dragover")); dragGuestId=null; if(!id) return; const g=S.guests.find(x=>x.id===id); if(g){ g.table=tableId; save(); renderMesas(); renderGuests(); } }
+
+function chipHtml(g,assigned){
+  const cnt=(+g.count>1)?(" ×"+g.count):"";
+  const tables=S.tables||[];
+  let extra="";
+  if(assigned){ extra=`<span class="x" title="Quitar de la mesa" onclick="assignGuest('${g.id}','')">✕</span>`; }
+  else if(tables.length){ extra=`<select onchange="assignGuest('${g.id}',this.value)" onclick="event.stopPropagation()" style="border:none;background:transparent;font-size:11px;color:var(--gold-deep);cursor:pointer"><option value="">→ mesa</option>${tables.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>`; }
+  return `<span class="chip ${assigned?"assigned":""}" draggable="true" ondragstart="dragGuest(event,'${g.id}')">${esc(g.name)}${cnt}${extra}</span>`;
+}
+function renderMesas(){
+  const tables=S.tables||[];
+  const tableIds=new Set(tables.map(t=>t.id));
+  const pool=S.guests.filter(g=> !g.table || !tableIds.has(g.table));
+  document.getElementById("mesaPool").innerHTML = pool.length? pool.map(g=>chipHtml(g,false)).join("") : '<span class="muted" style="font-size:13px">¡Todos los invitados están asignados! 🎉</span>';
+  document.getElementById("poolCount").textContent = "· "+pool.reduce((a,g)=>a+(+g.count||0),0)+" personas";
+  document.getElementById("mesasGrid").innerHTML = tables.length? tables.map(t=>{
+    const gs=S.guests.filter(g=>g.table===t.id);
+    const occ=gs.reduce((a,g)=>a+(+g.count||0),0);
+    const over=t.seats && occ>t.seats;
+    return `<div class="mesa ${over?"full":""}" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')">
+      <div class="mesa-head">
+        <input class="mesa-name" value="${esc(t.name)}" onchange="updTable('${t.id}','name',this.value)">
+        <button class="icon" title="Eliminar mesa" onclick="delTable('${t.id}')">🗑</button>
+      </div>
+      <div class="mesa-cap ${over?"over":""}">${occ}${t.seats?(" / "+t.seats):""} lugares
+        <input type="number" min="0" value="${t.seats||0}" style="width:46px;border:1px solid var(--line);border-radius:6px;padding:2px 4px;margin-left:4px" onchange="updTable('${t.id}','seats',this.value)" title="Capacidad de la mesa"></div>
+      <div>${gs.length?gs.map(g=>chipHtml(g,true)).join(""):'<span class="muted" style="font-size:12px">Arrastra invitados aquí</span>'}</div>
+    </div>`;
+  }).join("") : '<div class="empty">Crea tu primera mesa con «+ Agregar mesa».</div>';
+}
+
+/* ---------- Cronograma ---------- */
+function renderSchedule(){
+  const sch=S.schedule||[];
+  document.getElementById("timeline").innerHTML = sch.length? sch.map(s=>`<div class="tl-row">
+    <input class="tl-time" value="${esc(s.time)}" placeholder="Hora" onchange="upd('schedule','${s.id}','time',this.value)">
+    <input class="tl-act" value="${esc(s.activity)}" placeholder="¿Qué pasa a esta hora?" onchange="upd('schedule','${s.id}','activity',this.value)">
+    <button class="icon" title="Eliminar" onclick="del('schedule','${s.id}');renderSchedule()">🗑</button>
+  </div>`).join("") : '<div class="empty">Agrega el primer momento del día.</div>';
+}
+function addSchedule(){ if(!S.schedule) S.schedule=[]; S.schedule.push({id:uid(),time:"",activity:""}); save(); renderSchedule(); }
+
+/* ---------- PIN de acceso ---------- */
+function maybePinGate(){
+  const gate=document.getElementById("pinGate"); if(!gate) return;
+  const pin=S.settings && S.settings.pin;
+  if(pin && sessionStorage.getItem("nupcia_unlocked")!=="1"){
+    if(gate.hidden){ gate.hidden=false; setTimeout(()=>{ const i=document.getElementById("pinInput"); if(i) i.focus(); },60); }
+  } else gate.hidden=true;
+}
+function tryPin(){
+  const v=(document.getElementById("pinInput").value||"").trim();
+  if(v===((S.settings&&S.settings.pin)||"")){
+    sessionStorage.setItem("nupcia_unlocked","1");
+    document.getElementById("pinGate").hidden=true;
+    document.getElementById("pinErr").textContent="";
+  } else {
+    document.getElementById("pinErr").textContent="PIN incorrecto";
+    document.getElementById("pinInput").value="";
+  }
+}
+
 /* ---------- CRUD genérico ---------- */
 function upd(list,id,field,val){
   const it=S[list].find(x=>x.id===id); if(!it) return;
@@ -569,7 +771,7 @@ function upd(list,id,field,val){
   save(); renderHeader(); renderDash();
 }
 function del(list,id){
-  const labels={budget:"este gasto",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor"};
+  const labels={budget:"este gasto",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",schedule:"este momento"};
   if(confirm("¿Eliminar "+(labels[list]||"este elemento")+"?")){ S[list]=S[list].filter(x=>x.id!==id); save(); renderDash(); renderHeader(); }
 }
 
@@ -579,15 +781,18 @@ let notesT;
 notesEl.addEventListener("input",()=>{ S.notes=notesEl.value; clearTimeout(notesT); notesT=setTimeout(save,500); });
 
 /* ---------- Ajustes ---------- */
-function fillSettings(){ const s=S.settings; sName1.value=s.name1||""; sName2.value=s.name2||""; sDate.value=s.date||""; sPlace.value=s.place||""; sBudget.value=s.budget||""; }
-function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.value.trim(),date:sDate.value,place:sPlace.value.trim(),budget:+sBudget.value||0}; save(); renderHeader(); renderDash(); renderBudget(); toast("Datos guardados ✓"); }
+function fillSettings(){ const s=S.settings; sName1.value=s.name1||""; sName2.value=s.name2||""; sDate.value=s.date||""; sPlace.value=s.place||""; sBudget.value=s.budget||""; sPin.value=s.pin||""; }
+function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.value.trim(),date:sDate.value,place:sPlace.value.trim(),budget:+sBudget.value||0,pin:sPin.value.trim()}; if(S.settings.pin) sessionStorage.setItem("nupcia_unlocked","1"); save(); renderHeader(); renderDash(); renderBudget(); toast("Datos guardados ✓"); }
 function exportData(){ const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}); const a=document.createElement("a"); const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,""); a.href=URL.createObjectURL(blob); a.download=`nupcia-${tag}-${new Date().toISOString().slice(0,10)}.json`; a.click(); toast("Respaldo descargado ✓"); }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderBudget(); renderGuests(); renderTasks(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; }
+function renderAll(){ renderHeader(); renderDash(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });
+
+/* ---------- PWA: service worker ---------- */
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 
 startApp();
 </script>
