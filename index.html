@@ -237,6 +237,7 @@
   <button data-tab="mesas">Mesas</button>
   <button data-tab="tareas">Tareas</button>
   <button data-tab="cronograma">Cronograma</button>
+  <button data-tab="participantes">Participantes</button>
   <button data-tab="proveedores">Proveedores</button>
   <button data-tab="notas">Notas</button>
   <button data-tab="ajustes">Ajustes</button>
@@ -339,6 +340,22 @@
     </section>
   </div>
 
+  <!-- PARTICIPANTES -->
+  <div class="panel" id="tab-participantes">
+    <section class="block">
+      <div class="sec-head">
+        <div><h2>Participantes</h2><div class="desc">Padrinos, ministros, músicos y todos los que tienen un rol en la boda</div></div>
+        <button class="btn primary" onclick="addParticipant()">+ Agregar participante</button>
+      </div>
+      <div class="scroll">
+        <table class="tbl" id="participantTbl">
+          <thead><tr><th style="width:22%">Rol</th><th>Nombre</th><th>Encargado de</th><th>Contacto</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
   <!-- PROVEEDORES -->
   <div class="panel" id="tab-proveedores">
     <section class="block">
@@ -434,7 +451,18 @@ function seedSchedule(){
   ];
 }
 function defaults(){
-  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:""}, budget:[], guests:[], vendors:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
+  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:""}, budget:[], guests:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
+}
+// Migración única: los "proveedores" importados eran en realidad participantes/padrinos.
+function migrateIfNeeded(raw){
+  if(raw && raw.participants===undefined && Array.isArray(raw.vendors)){
+    raw.participants = raw.vendors
+      .filter(v=> v && v.name && v.name!=="Nombre")
+      .map(v=>({id:v.id||uid(), role:(v.type==="Participante"?"Padrino/Madrina":(v.type||"")), name:v.name||"", task:v.notes||"", contact:v.contact||""}));
+    raw.vendors = [];
+    return true;
+  }
+  return false;
 }
 let S = defaults();
 
@@ -454,7 +482,7 @@ function setStatus(state, text){
 
 function startApp(){
   // carga inmediata desde caché para no ver pantalla vacía
-  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ S=Object.assign(defaults(), JSON.parse(c)); } }catch(e){}
+  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); S=Object.assign(defaults(), raw); } }catch(e){}
   renderAll();
   connectSupabase();
 }
@@ -472,7 +500,8 @@ function connectSupabase(){
       alert("No se pudo leer la base de datos.\n¿Ejecutaste el script SQL (tabla + permisos) en Supabase?\n\n"+error.message);
       return;
     }
-    if(data && data.data) onRemote(data.data); else pushFull();
+    if(data && data.data){ const raw=data.data; const mig=migrateIfNeeded(raw); onRemote(raw); if(mig) save(true); }
+    else pushFull();
     ready=true; setStatus("online","Sincronizado en tiempo real");
   });
 
@@ -585,7 +614,7 @@ function renderDash(){
     <div class="stat"><div class="k">Tareas completadas</div><div class="v">${doneT}<span class="muted" style="font-size:16px">/${t.length}</span></div><div class="bar"><span style="width:${pct}%"></span></div></div>
     <div class="stat"><div class="k">Presupuesto</div><div class="v small">${money(budget)}</div><div class="meta">Estimado: ${money(estTotal)} · Pagado: ${money(paidTotal)}</div></div>
     <div class="stat"><div class="k">Invitados confirmados</div><div class="v">${confirmed}<span class="muted" style="font-size:16px">/${people}</span></div><div class="meta">${g.length} grupos en la lista</div></div>
-    <div class="stat"><div class="k">Proveedores</div><div class="v">${S.vendors.length}</div><div class="meta">${S.vendors.filter(v=>v.status==="Confirmado").length} confirmados</div></div>`;
+    <div class="stat"><div class="k">Participantes</div><div class="v">${(S.participants||[]).length}</div><div class="meta">padrinos, ministros, música…</div></div>`;
   const next=t.filter(x=>!x.done).slice(0,6);
   const dt=document.getElementById("dashTasks");
   dt.innerHTML=next.length?next.map(x=>`<div class="task"><input type="checkbox" onchange="toggleTask('${x.id}',this.checked)">
@@ -676,6 +705,19 @@ function renderTasks(){
 function addTask(phase){ S.tasks.push({id:uid(),title:"",phase,due:"",done:false}); save(); renderTasks(); }
 function toggleTask(id,val){ const t=S.tasks.find(x=>x.id===id); if(t){ t.done=val; save(); renderTasks(); renderDash(); } }
 function resetTasks(){ if(confirm("Esto restaura la lista sugerida. Se perderán las tareas que agregaste o marcaste. ¿Continuar?")){ S.tasks=seedTasks(); save(); renderTasks(); renderDash(); toast("Lista restaurada"); } }
+
+/* ---------- Participantes ---------- */
+function addParticipant(){ if(!S.participants) S.participants=[]; S.participants.push({id:uid(),role:"",name:"",task:"",contact:""}); save(); renderParticipants(); }
+function renderParticipants(){
+  const tb=document.querySelector("#participantTbl tbody");
+  const list=S.participants||[];
+  tb.innerHTML=list.length?list.map(x=>`<tr>
+    <td><input value="${esc(x.role)}" placeholder="Ej. Padrino, Pastor, Música" onchange="upd('participants','${x.id}','role',this.value)"></td>
+    <td><input value="${esc(x.name)}" placeholder="Nombre" onchange="upd('participants','${x.id}','name',this.value)"></td>
+    <td><input value="${esc(x.task)}" placeholder="Ej. Anillos, Guitarra…" onchange="upd('participants','${x.id}','task',this.value)"></td>
+    <td><input value="${esc(x.contact)}" placeholder="Tel / correo" onchange="upd('participants','${x.id}','contact',this.value)"></td>
+    <td><button class="icon" title="Eliminar" onclick="del('participants','${x.id}');renderParticipants()">🗑</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty">Sin participantes aún. Agrega padrinos, ministros, músicos…</div></td></tr>`;
+}
 
 /* ---------- Proveedores ---------- */
 function addVendor(){ S.vendors.push({id:uid(),type:"",name:"",contact:"",cost:0,status:"Por contactar",notes:""}); save(); renderVendors(); }
@@ -771,7 +813,7 @@ function upd(list,id,field,val){
   save(); renderHeader(); renderDash();
 }
 function del(list,id){
-  const labels={budget:"este gasto",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",schedule:"este momento"};
+  const labels={budget:"este gasto",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",participants:"este participante",schedule:"este momento"};
   if(confirm("¿Eliminar "+(labels[list]||"este elemento")+"?")){ S[list]=S[list].filter(x=>x.id!==id); save(); renderDash(); renderHeader(); }
 }
 
@@ -786,7 +828,7 @@ function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.valu
 function exportData(){ const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}); const a=document.createElement("a"); const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,""); a.href=URL.createObjectURL(blob); a.download=`nupcia-${tag}-${new Date().toISOString().slice(0,10)}.json`; a.click(); toast("Respaldo descargado ✓"); }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
+function renderAll(){ renderHeader(); renderDash(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });
