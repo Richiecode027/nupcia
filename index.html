@@ -201,6 +201,20 @@
   .pin-card input{width:100%; text-align:center; letter-spacing:6px; font-size:24px; border:1px solid var(--line);
     border-radius:12px; padding:12px; margin:16px 0; font-family:inherit}
   .pin-card input:focus{outline:none; border-color:var(--sage)}
+
+  /* Responsable de tareas */
+  .tfilter{display:flex; gap:6px; margin-bottom:6px; flex-wrap:wrap}
+  .tfilter button{border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:20px; padding:6px 14px; font-family:inherit; font-size:13.5px; cursor:pointer; transition:.15s}
+  .tfilter button:hover{border-color:var(--sage)}
+  .tfilter button.active{background:var(--sage); color:#fff; border-color:var(--sage); font-weight:600}
+  .who-sel{border:1px solid var(--line); border-radius:20px; padding:4px 9px; font-family:inherit; font-size:12px; cursor:pointer; background:#fff; flex:none}
+  .who-sel:focus{outline:none}
+  .who-novio{color:#3f6fa8; border-color:#bcd0e6; background:#eef4fb}
+  .who-novia{color:#a8537e; border-color:#e6c2d5; background:#fbeef5}
+  .who-tag{font-size:10.5px; border-radius:20px; padding:2px 8px; font-weight:600}
+  .who-tag.novio{color:#3f6fa8; background:#eef4fb}
+  .who-tag.novia{color:#a8537e; background:#fbeef5}
+  @media(max-width:560px){ .task{flex-wrap:wrap} .task .t-title{flex:1 1 60%} }
 </style>
 </head>
 <body>
@@ -322,9 +336,10 @@
   <div class="panel" id="tab-tareas">
     <section class="block">
       <div class="sec-head">
-        <div><h2>Lista de tareas</h2><div class="desc">Organizada por etapas. Marca lo que vayan completando.</div></div>
+        <div><h2>Lista de tareas</h2><div class="desc">Repártanse el trabajo: asignen cada tarea al novio, la novia o ambos.</div></div>
         <button class="btn" onclick="resetTasks()">↺ Restaurar lista sugerida</button>
       </div>
+      <div class="tfilter" id="taskFilterBar"></div>
       <div id="tasksWrap"></div>
     </section>
   </div>
@@ -439,7 +454,7 @@ function seedTasks(){
     ["Último mes",["Confirmar asistencia (RSVP) final","Entregar cronograma del día a proveedores","Empacar para la luna de miel","Preparar pagos y propinas en sobres"]],
     ["Semana de la boda",["Recoger vestido y trajes","Confirmar hora de llegada de cada proveedor","Ensayo de la ceremonia","Descansar y disfrutar 💍"]]
   ];
-  const out=[]; data.forEach(([phase,items])=>items.forEach(t=>out.push({id:uid(),title:t,phase,due:"",done:false}))); return out;
+  const out=[]; data.forEach(([phase,items])=>items.forEach(t=>out.push({id:uid(),title:t,phase,due:"",done:false,who:"ambos"}))); return out;
 }
 function seedSchedule(){
   return [
@@ -617,9 +632,10 @@ function renderDash(){
     <div class="stat"><div class="k">Participantes</div><div class="v">${(S.participants||[]).length}</div><div class="meta">padrinos, ministros, música…</div></div>`;
   const next=t.filter(x=>!x.done).slice(0,6);
   const dt=document.getElementById("dashTasks");
-  dt.innerHTML=next.length?next.map(x=>`<div class="task"><input type="checkbox" onchange="toggleTask('${x.id}',this.checked)">
+  dt.innerHTML=next.length?next.map(x=>{const w=x.who||"ambos"; return `<div class="task"><input type="checkbox" onchange="toggleTask('${x.id}',this.checked)">
     <span class="t-title">${esc(x.title)}</span>
-    <span class="badge" style="font-size:11px;background:var(--sage-light);color:var(--sage);border-radius:20px;padding:2px 9px">${x.phase}</span></div>`).join(""):`<div class="empty">¡Todas las tareas están completas! 🎉</div>`;
+    ${w!=="ambos"?`<span class="who-tag ${w}">${w==="novio"?"💙 Novio":"💗 Novia"}</span>`:""}
+    <span class="badge" style="font-size:11px;background:var(--sage-light);color:var(--sage);border-radius:20px;padding:2px 9px">${x.phase}</span></div>`;}).join(""):`<div class="empty">¡Todas las tareas están completas! 🎉</div>`;
 }
 
 /* ---------- Presupuesto ---------- */
@@ -689,20 +705,39 @@ function renderGuests(){
 }
 
 /* ---------- Tareas ---------- */
+let taskFilter="";
+function setTaskFilter(f){ taskFilter=f; renderTasks(); }
 function renderTasks(){
-  document.getElementById("tasksWrap").innerHTML=PHASES.map(ph=>{
-    const items=S.tasks.filter(t=>t.phase===ph); if(!items.length) return "";
+  const who=t=>t.who||"ambos";
+  const cN=S.tasks.filter(t=>who(t)==="novio").length;
+  const cV=S.tasks.filter(t=>who(t)==="novia").length;
+  const cA=S.tasks.filter(t=>who(t)==="ambos").length;
+  const fb=document.getElementById("taskFilterBar");
+  if(fb) fb.innerHTML=`
+    <button class="${taskFilter===""?"active":""}" onclick="setTaskFilter('')">Todas (${S.tasks.length})</button>
+    <button class="${taskFilter==="novio"?"active":""}" onclick="setTaskFilter('novio')">💙 Novio (${cN})</button>
+    <button class="${taskFilter==="novia"?"active":""}" onclick="setTaskFilter('novia')">💗 Novia (${cV})</button>
+    <button class="${taskFilter==="ambos"?"active":""}" onclick="setTaskFilter('ambos')">🤝 Ambos (${cA})</button>`;
+
+  const WHO=[["ambos","Ambos"],["novio","Novio"],["novia","Novia"]];
+  const html=PHASES.map(ph=>{
+    let items=S.tasks.filter(t=>t.phase===ph);
+    if(taskFilter) items=items.filter(t=>who(t)===taskFilter);
+    if(!items.length) return "";
     const done=items.filter(i=>i.done).length;
     return `<div class="phase"><h3>${ph} <span class="badge">${done}/${items.length}</span></h3>
-      ${items.map(t=>`<div class="task ${t.done?"done":""}">
+      ${items.map(t=>{const w=who(t); return `<div class="task ${t.done?"done":""}">
         <input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${t.id}',this.checked)">
         <input class="t-title" value="${esc(t.title)}" onchange="upd('tasks','${t.id}','title',this.value)">
+        <select class="who-sel who-${w}" title="Responsable" onchange="upd('tasks','${t.id}','who',this.value);renderTasks()">
+          ${WHO.map(([v,l])=>`<option value="${v}" ${w===v?"selected":""}>${l}</option>`).join("")}</select>
         <input type="date" value="${t.due||""}" title="Fecha límite" onchange="upd('tasks','${t.id}','due',this.value)">
-        <button class="icon" title="Eliminar" onclick="del('tasks','${t.id}');renderTasks()">🗑</button></div>`).join("")}
+        <button class="icon" title="Eliminar" onclick="del('tasks','${t.id}');renderTasks()">🗑</button></div>`;}).join("")}
       <div style="margin-top:8px"><button class="btn ghost" onclick="addTask('${ph}')">+ Agregar tarea</button></div></div>`;
   }).join("");
+  document.getElementById("tasksWrap").innerHTML = html || `<div class="empty">No hay tareas ${taskFilter==="novio"?"del novio":taskFilter==="novia"?"de la novia":taskFilter==="ambos"?"compartidas":""} todavía. Asigna alguna con el selector de responsable.</div>`;
 }
-function addTask(phase){ S.tasks.push({id:uid(),title:"",phase,due:"",done:false}); save(); renderTasks(); }
+function addTask(phase){ S.tasks.push({id:uid(),title:"",phase,due:"",done:false,who:taskFilter||"ambos"}); save(); renderTasks(); }
 function toggleTask(id,val){ const t=S.tasks.find(x=>x.id===id); if(t){ t.done=val; save(); renderTasks(); renderDash(); } }
 function resetTasks(){ if(confirm("Esto restaura la lista sugerida. Se perderán las tareas que agregaste o marcaste. ¿Continuar?")){ S.tasks=seedTasks(); save(); renderTasks(); renderDash(); toast("Lista restaurada"); } }
 
