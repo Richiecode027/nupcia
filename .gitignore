@@ -1,0 +1,7 @@
+# Respaldos locales descargados desde la app
+nupcia-*.json
+respaldo-*.json
+
+# Sistema
+Thumbs.db
+.DS_Store
