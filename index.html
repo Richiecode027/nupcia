@@ -324,8 +324,11 @@
   <div class="panel" id="tab-mesas">
     <section class="block">
       <div class="sec-head">
-        <div><h2>Acomodo de mesas</h2><div class="desc">Arrastra a cada invitado a su mesa. En el celular usa el menú de cada nombre.</div></div>
-        <button class="btn primary" onclick="addTable()">+ Agregar mesa</button>
+        <div><h2>Acomodo de mesas</h2><div class="desc">Arrastra a cada invitado a su mesa, o usa el acomodo automático por familia.</div></div>
+        <div class="toolbar">
+          <button class="btn" onclick="autoArrange()">✨ Acomodo automático</button>
+          <button class="btn primary" onclick="addTable()">+ Agregar mesa</button>
+        </div>
       </div>
       <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span></div>
       <div class="pool" id="mesaPool" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'')"></div>
@@ -801,6 +804,49 @@ function renderVendors(){
 
 /* ---------- Mesas (acomodo visual) ---------- */
 function addTable(){ if(!S.tables) S.tables=[]; S.tables.push({id:uid(),name:"Mesa "+(S.tables.length+1),seats:10}); save(); renderMesas(); }
+// Acomodo automático por familia/grupo, 10 personas por mesa
+function autoArrange(){
+  if(!S.guests.length){ toast("No hay invitados"); return; }
+  if(!confirm("Va a reacomodar TODAS las mesas automáticamente por familia y grupo (10 personas por mesa) y reemplazará el acomodo actual.\n\n¿Continuar?")) return;
+  const CAP=10;
+  const parse=g=>{ const parts=(g||"").split(/\s*[—–-]\s+/); return parts.length>=2?{p:parts[0].trim(),seg:parts.slice(1).join(" ").trim()}:{p:"",seg:(g||"").trim()}; };
+  // novio primero (su hoja aparece primero en la lista)
+  const personIdx={}; let pc=0;
+  S.guests.forEach(g=>{ const p=parse(g.group).p; if(p && !(p in personIdx)) personIdx[p]=pc++; });
+  // agrupar en cubetas
+  const bucketMap={};
+  S.guests.forEach(g=>{
+    const {p,seg}=parse(g.group), s=seg.toLowerCase();
+    let pre,label;
+    if(s.includes("paterna")){ pre="fp"; label="Fam. paterna "+p; }
+    else if(s.includes("materna")){ pre="fm"; label="Fam. materna "+p; }
+    else if(s.includes("iglesia")){ pre="ig"; label="Iglesia"; }
+    else if(s.includes("amigos")){ pre="am"; label="Amigos "+p; }
+    else { pre="ot"; label="Otros"; }
+    const key=(pre==="ig"||pre==="ot")?pre:pre+"|"+p;
+    if(!bucketMap[key]) bucketMap[key]={pre,p,label,guests:[]};
+    bucketMap[key].guests.push(g);
+  });
+  const rank=b=>{ const pi=(b.p in personIdx)?personIdx[b.p]:0;
+    if(b.pre==="fp") return 0+pi*2;
+    if(b.pre==="fm") return 1+pi*2;
+    if(b.pre==="ig") return 100;
+    if(b.pre==="am") return 200+pi;
+    return 300; };
+  const buckets=Object.keys(bucketMap).map(k=>bucketMap[k]).sort((a,b)=>rank(a)-rank(b));
+  const tables=[];
+  buckets.forEach(b=>{
+    let idx=0, occ=0, cur=null;
+    b.guests.forEach(g=>{
+      const c=+g.count||1;
+      if(!cur || (occ+c>CAP && occ>0)){ idx++; cur={id:uid(),name:b.label+" "+idx,seats:CAP}; tables.push(cur); occ=0; }
+      g.table=cur.id; occ+=c;
+    });
+  });
+  S.tables=tables;
+  save(); renderMesas(); renderGuests();
+  toast(tables.length+" mesas acomodadas ✓");
+}
 function updTable(id,field,val){ const t=S.tables.find(x=>x.id===id); if(!t) return; t[field]=field==="seats"?(+val||0):val; save(); renderMesas(); }
 function delTable(id){ if(!confirm("¿Eliminar esta mesa? Sus invitados volverán a «Sin asignar».")) return; S.tables=(S.tables||[]).filter(x=>x.id!==id); S.guests.forEach(g=>{ if(g.table===id) g.table=""; }); save(); renderMesas(); renderGuests(); }
 function assignGuest(id,tableId){ const g=S.guests.find(x=>x.id===id); if(!g) return; g.table=tableId; save(); renderMesas(); renderGuests(); }
