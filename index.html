@@ -216,6 +216,13 @@
   .who-tag.novia{color:#a8537e; background:#fbeef5}
   @media(max-width:560px){ .task{flex-wrap:wrap} .task .t-title{flex:1 1 60%} }
 
+  /* Presupuesto: colores de estado */
+  .tbl tr.row-pagado td{background:#eef6f0}
+  .tbl tr.row-donado td{background:#f4eefa}
+  .abon-donado{color:#7a5ba8; font-weight:600; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .leyenda{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:10px}
+  .leyenda span{display:inline-flex; align-items:center; gap:6px}
+  .leyenda i{width:12px; height:12px; border-radius:3px; display:inline-block}
 </style>
 </head>
 <body>
@@ -276,16 +283,28 @@
   <div class="panel" id="tab-presupuesto">
     <section class="block">
       <div class="sec-head">
-        <div><h2>Presupuesto</h2><div class="desc">Estimado vs. real, y cuánto llevan pagado</div></div>
+        <div><h2>Ahorro</h2><div class="desc">Quién está ahorrando y cuánto</div></div>
+        <button class="btn" onclick="addSaving()">+ Agregar ahorrante</button>
+      </div>
+      <div class="scroll"><div id="savingsBox"></div></div>
+    </section>
+
+    <section class="block">
+      <div class="sec-head">
+        <div><h2>Presupuesto</h2><div class="desc">Monto de cada rubro y lo abonado</div></div>
         <button class="btn primary" onclick="addBudget()">+ Agregar gasto</button>
       </div>
       <div id="budgetSummary"></div>
       <div class="scroll" style="margin-top:14px">
         <table class="tbl" id="budgetTbl">
-          <thead><tr><th style="width:24%">Categoría</th><th style="width:30%">Concepto</th>
-            <th class="num">Estimado</th><th class="num">Real</th><th class="num">Pagado</th><th></th></tr></thead>
+          <thead><tr><th style="width:22%">Categoría</th><th style="width:28%">Concepto</th>
+            <th class="num">Monto</th><th class="num">Abonado</th><th style="width:80px; text-align:center">Donado</th><th></th></tr></thead>
           <tbody></tbody><tfoot></tfoot>
         </table>
+      </div>
+      <div class="leyenda">
+        <span><i style="background:#eef6f0; border:1px solid #cfe3d6"></i> Rubro pagado por completo</span>
+        <span><i style="background:#f4eefa; border:1px solid #ddccef"></i> Rubro donado</span>
       </div>
     </section>
   </div>
@@ -482,7 +501,34 @@ function seedSchedule(){
   ];
 }
 function defaults(){
-  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:""}, budget:[], guests:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
+  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:""}, budget:[], savings:[], guests:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
+}
+// Migración del presupuesto: estimado/real/pagado -> monto/abonado/donado, y caja de ahorro
+function migrateBudget(raw){
+  let changed=false;
+  if(raw && raw.savings===undefined){
+    raw.savings=[
+      {id:uid(),who:"Julissa",amount:12000},
+      {id:uid(),who:"Ricardo",amount:19000},
+      {id:uid(),who:"Seguro",amount:15000},
+      {id:uid(),who:"Papás Julissa",amount:20000}
+    ];
+    changed=true;
+  }
+  if(raw && Array.isArray(raw.budget)){
+    const DON=["flores","pan","fotografía","fotografia","luces de vengala"];
+    raw.budget.forEach(b=>{
+      if(b.monto===undefined){
+        b.monto=(b.estimated!=null?b.estimated:(b.actual!=null?b.actual:0))||0;
+        const isDon=DON.indexOf(String(b.item||"").toLowerCase().trim())>=0;
+        b.donado=isDon;
+        b.abonado=isDon?0:(b.paid||0);
+        delete b.estimated; delete b.actual; delete b.paid;
+        changed=true;
+      }
+    });
+  }
+  return changed;
 }
 // Migración única: los "proveedores" importados eran en realidad participantes/padrinos.
 function migrateIfNeeded(raw){
@@ -513,7 +559,7 @@ function setStatus(state, text){
 
 function startApp(){
   // carga inmediata desde caché para no ver pantalla vacía
-  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); normalizePhases(raw); S=Object.assign(defaults(), raw); } }catch(e){}
+  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); normalizePhases(raw); migrateBudget(raw); S=Object.assign(defaults(), raw); } }catch(e){}
   renderAll();
   connectSupabase();
 }
@@ -534,7 +580,7 @@ function connectSupabase(){
     if(data && data.data){
       const raw=data.data;
       if(hasLocalEdits){ save(true); }                 // el usuario ya editó: no sobrescribir, escribir lo local
-      else { const m1=migrateIfNeeded(raw), m2=normalizePhases(raw); onRemote(raw); if(m1||m2) save(true); }
+      else { const m1=migrateIfNeeded(raw), m2=normalizePhases(raw), m3=migrateBudget(raw); onRemote(raw); if(m1||m2||m3) save(true); }
     } else pushFull();
     ready=true; setStatus("online","Sincronizado en tiempo real");
   });
@@ -650,8 +696,8 @@ setInterval(updateCount, 1000);
 /* ---------- Dashboard ---------- */
 function renderDash(){
   const b=S.budget,g=S.guests,t=S.tasks;
-  const estTotal=b.reduce((a,x)=>a+(+x.estimated||0),0);
-  const paidTotal=b.reduce((a,x)=>a+(+x.paid||0),0);
+  const montoTotal=b.reduce((a,x)=>a+(+x.monto||0),0);
+  const abonTotal=b.reduce((a,x)=>a+(x.donado?(+x.monto||0):(+x.abonado||0)),0);
   const budget=+S.settings.budget||0;
   const people=g.reduce((a,x)=>a+(+x.count||0),0);
   const confirmed=g.filter(x=>x.rsvp==="si").reduce((a,x)=>a+(+x.count||0),0);
@@ -659,7 +705,7 @@ function renderDash(){
   const pct=t.length?Math.round(doneT/t.length*100):0;
   document.getElementById("dashCards").innerHTML=`
     <div class="stat"><div class="k">Tareas completadas</div><div class="v">${doneT}<span class="muted" style="font-size:16px">/${t.length}</span></div><div class="bar"><span style="width:${pct}%"></span></div></div>
-    <div class="stat"><div class="k">Presupuesto</div><div class="v small">${money(budget)}</div><div class="meta">Estimado: ${money(estTotal)} · Pagado: ${money(paidTotal)}</div></div>
+    <div class="stat"><div class="k">Presupuesto</div><div class="v small">${money(montoTotal)}</div><div class="meta">Abonado: ${money(abonTotal)}</div></div>
     <div class="stat"><div class="k">Invitados confirmados</div><div class="v">${confirmed}<span class="muted" style="font-size:16px">/${people}</span></div><div class="meta">${g.length} grupos en la lista</div></div>
     <div class="stat"><div class="k">Participantes</div><div class="v">${(S.participants||[]).length}</div><div class="meta">padrinos, ministros, música…</div></div>`;
   const next=t.filter(x=>!x.done).slice(0,6);
@@ -670,25 +716,52 @@ function renderDash(){
     <span class="badge" style="font-size:11px;background:var(--sage-light);color:var(--sage);border-radius:20px;padding:2px 9px">${x.phase}</span></div>`;}).join(""):`<div class="empty">¡Todas las tareas están completas! 🎉</div>`;
 }
 
+/* ---------- Ahorro ---------- */
+function addSaving(){ if(!S.savings) S.savings=[]; S.savings.push({id:uid(),who:"",amount:0}); save(); renderSavings(); renderBudget(); }
+function renderSavings(){
+  const list=S.savings||[];
+  const total=list.reduce((a,x)=>a+(+x.amount||0),0);
+  document.getElementById("savingsBox").innerHTML=`<table class="tbl"><tbody>${
+    list.length?list.map(x=>`<tr>
+      <td><input value="${esc(x.who)}" placeholder="¿Quién ahorra?" onchange="upd('savings','${x.id}','who',this.value)"></td>
+      <td><input type="number" min="0" class="num" value="${x.amount||0}" onchange="upd('savings','${x.id}','amount',this.value);renderSavings();renderBudget()"></td>
+      <td style="width:44px"><button class="icon" title="Eliminar" onclick="del('savings','${x.id}');renderSavings();renderBudget()">🗑</button></td></tr>`).join(""):`<tr><td colspan="3"><div class="empty">Sin ahorrantes aún.</div></td></tr>`
+  }</tbody><tfoot><tr><td>Total ahorro</td><td class="num">${money(total)}</td><td></td></tr></tfoot></table>`;
+}
+
 /* ---------- Presupuesto ---------- */
-function addBudget(){ S.budget.push({id:uid(),category:"",item:"",estimated:0,actual:0,paid:0}); save(); renderBudget(); }
+function addBudget(){ S.budget.push({id:uid(),category:"",item:"",monto:0,abonado:0,donado:false}); save(); renderBudget(); }
 function renderBudget(){
   const tb=document.querySelector("#budgetTbl tbody");
-  tb.innerHTML=S.budget.length?S.budget.map(x=>`<tr>
-      <td><input value="${esc(x.category)}" placeholder="Ej. Banquete" onchange="upd('budget','${x.id}','category',this.value)"></td>
-      <td><input value="${esc(x.item)}" placeholder="Detalle" onchange="upd('budget','${x.id}','item',this.value)"></td>
-      <td><input type="number" min="0" value="${x.estimated||0}" onchange="upd('budget','${x.id}','estimated',this.value);renderBudget()"></td>
-      <td><input type="number" min="0" value="${x.actual||0}" onchange="upd('budget','${x.id}','actual',this.value);renderBudget()"></td>
-      <td><input type="number" min="0" value="${x.paid||0}" onchange="upd('budget','${x.id}','paid',this.value);renderBudget()"></td>
-      <td><button class="icon" title="Eliminar" onclick="del('budget','${x.id}');renderBudget()">🗑</button></td></tr>`).join(""):`<tr><td colspan="6"><div class="empty">Sin gastos aún. Agrega tu primer concepto.</div></td></tr>`;
-  const est=S.budget.reduce((a,x)=>a+(+x.estimated||0),0),act=S.budget.reduce((a,x)=>a+(+x.actual||0),0),paid=S.budget.reduce((a,x)=>a+(+x.paid||0),0);
-  document.querySelector("#budgetTbl tfoot").innerHTML=`<tr><td colspan="2">Totales</td><td class="num">${money(est)}</td><td class="num">${money(act)}</td><td class="num">${money(paid)}</td><td></td></tr>`;
-  const budget=+S.settings.budget||0, sum=document.getElementById("budgetSummary");
-  if(budget>0){ const pct=Math.min(100,Math.round(est/budget*100)), over=est>budget;
-    sum.innerHTML=`<div class="stat" style="margin-bottom:0"><div class="k">Presupuesto total ${money(budget)}</div>
-      <div class="meta">Estimado ${money(est)} · ${over?`<b style="color:var(--danger)">Excedido por ${money(est-budget)}</b>`:`Disponible ${money(budget-est)}`}</div>
-      <div class="bar ${over?"over":""}"><span style="width:${pct}%"></span></div></div>`;
-  } else sum.innerHTML=`<p class="muted" style="font-size:13px;margin:0">Define tu presupuesto total en «Ajustes» para ver el avance.</p>`;
+  tb.innerHTML=S.budget.length?S.budget.map(x=>{
+    const monto=+x.monto||0, donado=!!x.donado, abon=donado?monto:(+x.abonado||0);
+    const pagado=!donado && monto>0 && abon>=monto;
+    const cls=donado?"row-donado":(pagado?"row-pagado":"");
+    return `<tr class="${cls}">
+      <td><input value="${esc(x.category)}" placeholder="Categoría" onchange="upd('budget','${x.id}','category',this.value)"></td>
+      <td><input value="${esc(x.item)}" placeholder="Concepto" onchange="upd('budget','${x.id}','item',this.value)"></td>
+      <td><input type="number" min="0" value="${monto}" onchange="upd('budget','${x.id}','monto',this.value);renderBudget()"></td>
+      <td>${donado
+        ? `<span class="abon-donado">${money(monto)} · donado</span>`
+        : `<input type="number" min="0" value="${x.abonado||0}" onchange="upd('budget','${x.id}','abonado',this.value);renderBudget()">`}</td>
+      <td style="text-align:center"><input type="checkbox" ${donado?"checked":""} title="Marcar todo el rubro como donado" onchange="upd('budget','${x.id}','donado',this.checked);renderBudget()"></td>
+      <td><button class="icon" title="Eliminar" onclick="del('budget','${x.id}');renderBudget()">🗑</button></td></tr>`;
+  }).join(""):`<tr><td colspan="6"><div class="empty">Sin gastos aún. Agrega tu primer concepto.</div></td></tr>`;
+
+  const monto=S.budget.reduce((a,x)=>a+(+x.monto||0),0);
+  const abonReal=S.budget.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
+  const donado=S.budget.reduce((a,x)=>a+(x.donado?(+x.monto||0):0),0);
+  const abonTotal=abonReal+donado;
+  document.querySelector("#budgetTbl tfoot").innerHTML=`<tr><td colspan="2">Totales</td><td class="num">${money(monto)}</td><td class="num">${money(abonTotal)}</td><td colspan="2"></td></tr>`;
+
+  const ahorro=(S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0);
+  const falta=monto-abonTotal-ahorro;
+  document.getElementById("budgetSummary").innerHTML=`<div class="cards">
+    <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
+    <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
+    <div class="stat"><div class="k">Ahorro</div><div class="v small" style="color:var(--gold-deep)">${money(ahorro)}</div></div>
+    <div class="stat"><div class="k">${falta>0?"Falta por cubrir":"Cubierto"}</div><div class="v small" style="color:${falta>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(falta))}</div></div>
+  </div>`;
 }
 
 /* ---------- Invitados ---------- */
@@ -918,11 +991,11 @@ function tryPin(){
 /* ---------- CRUD genérico ---------- */
 function upd(list,id,field,val){
   const it=S[list].find(x=>x.id===id); if(!it) return;
-  it[field]=["count","estimated","actual","paid","cost"].includes(field)?(+val||0):val;
+  it[field]=["count","monto","abonado","amount","cost"].includes(field)?(+val||0):val;
   save(); renderHeader(); renderDash();
 }
 function del(list,id){
-  const labels={budget:"este gasto",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",participants:"este participante",schedule:"este momento"};
+  const labels={budget:"este gasto",savings:"este ahorrante",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",participants:"este participante",schedule:"este momento"};
   if(confirm("¿Eliminar "+(labels[list]||"este elemento")+"?")){ S[list]=S[list].filter(x=>x.id!==id); save(); renderDash(); renderHeader(); }
 }
 
@@ -937,7 +1010,7 @@ function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.valu
 function exportData(){ const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}); const a=document.createElement("a"); const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,""); a.href=URL.createObjectURL(blob); a.download=`nupcia-${tag}-${new Date().toISOString().slice(0,10)}.json`; a.click(); toast("Respaldo descargado ✓"); }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
+function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });
