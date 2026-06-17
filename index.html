@@ -32,7 +32,8 @@
   header .amp{color:var(--gold-deep); font-style:italic}
   header .sub{color:var(--muted); margin-top:6px; font-size:14px}
   header .count{margin-top:16px; display:inline-flex; gap:18px; flex-wrap:wrap; justify-content:center;}
-  header .count .box{background:rgba(255,255,255,.7); border:1px solid var(--line); border-radius:14px; padding:10px 18px; min-width:78px;}
+  header .count{gap:10px}
+  header .count .box{background:rgba(255,255,255,.7); border:1px solid var(--line); border-radius:14px; padding:10px 4px; width:84px; min-width:84px; flex:none}
   header .count .num{font-size:26px; font-family:Georgia,serif; color:var(--gold-deep); font-weight:700}
   header .count .lbl{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted)}
 
@@ -214,6 +215,8 @@
   .who-tag{font-size:10.5px; border-radius:20px; padding:2px 8px; font-weight:600}
   .who-tag.novio{color:#3f6fa8; background:#eef4fb}
   .who-tag.novia{color:#a8537e; background:#fbeef5}
+  .phase.done-section{margin-top:26px; border-top:2px dashed var(--line); padding-top:10px}
+  .phase.done-section h3{color:var(--muted)}
   @media(max-width:560px){ .task{flex-wrap:wrap} .task .t-title{flex:1 1 60%} }
 
   /* Presupuesto: colores de estado */
@@ -371,6 +374,7 @@
         <div><h2>Acomodo de mesas</h2><div class="desc">Arrastra a cada invitado a su mesa, o usa el acomodo automático por familia.</div></div>
         <div class="toolbar">
           <button class="btn" id="viewToggle" onclick="toggleMesaView()">📋 Ver como lista</button>
+          <button class="btn" onclick="printMesas()">🖨 Imprimir / PDF</button>
           <button class="btn" onclick="autoArrange()">✨ Acomodo automático</button>
           <button class="btn primary" onclick="addTable()">+ Agregar mesa</button>
         </div>
@@ -698,11 +702,28 @@ function renderHeader(){
   updateCount();
   const sl=document.getElementById("shareLink"); if(sl) sl.value=shareUrl();
 }
+function parseTime12(str){
+  const m=String(str||"").trim().match(/^(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)?$/i);
+  if(!m) return null;
+  let h=+m[1]; const min=+m[2], ap=(m[3]||"").toLowerCase().replace(/\./g,"");
+  if(ap==="pm" && h<12) h+=12;
+  if(ap==="am" && h===12) h=0;
+  if(h>23||min>59) return null;
+  return h*60+min;
+}
+function weddingTarget(){
+  const s=S.settings; if(!s.date) return null;
+  let mins=17*60;                                   // 5:00 PM por defecto
+  const sch=S.schedule||[];
+  if(sch.length){ const t=parseTime12(sch[0].time); if(t!=null) mins=t; }
+  const p=n=>String(n).padStart(2,"0");
+  return new Date(s.date+"T"+p(Math.floor(mins/60))+":"+p(mins%60)+":00").getTime();
+}
 function updateCount(){
   const c=document.getElementById("hCount"); if(!c) return;
   const s=S.settings;
   if(!s.date){ c.innerHTML=""; return; }
-  const diff=new Date(s.date+"T00:00:00").getTime()-Date.now();
+  const diff=weddingTarget()-Date.now();
   if(diff>0){
     const d=Math.floor(diff/86400000),
           h=Math.floor(diff%86400000/3600000),
@@ -839,6 +860,18 @@ function renderGuests(){
 /* ---------- Tareas ---------- */
 let taskFilter="";
 function setTaskFilter(f){ taskFilter=f; renderTasks(); }
+const WHO_OPTS=[["ambos","Ambos"],["novio","Novio"],["novia","Novia"]];
+function taskRow(t, showPhase){
+  const w=t.who||"ambos";
+  return `<div class="task ${t.done?"done":""}">
+    <input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${t.id}',this.checked)">
+    <input class="t-title" value="${esc(t.title)}" onchange="upd('tasks','${t.id}','title',this.value)">
+    ${showPhase?`<span class="badge" style="font-size:10.5px;background:var(--sage-light);color:var(--sage);border-radius:20px;padding:2px 8px">${esc(t.phase)}</span>`:""}
+    <select class="who-sel who-${w}" title="Responsable" onchange="upd('tasks','${t.id}','who',this.value);renderTasks()">
+      ${WHO_OPTS.map(([v,l])=>`<option value="${v}" ${w===v?"selected":""}>${l}</option>`).join("")}</select>
+    <input type="date" value="${t.due||""}" title="Fecha límite" onchange="upd('tasks','${t.id}','due',this.value)">
+    <button class="icon" title="Eliminar" onclick="del('tasks','${t.id}');renderTasks()">🗑</button></div>`;
+}
 function renderTasks(){
   const who=t=>t.who||"ambos";
   const cN=S.tasks.filter(t=>who(t)==="novio").length;
@@ -850,24 +883,24 @@ function renderTasks(){
     <button class="${taskFilter==="novio"?"active":""}" onclick="setTaskFilter('novio')">💙 Novio (${cN})</button>
     <button class="${taskFilter==="novia"?"active":""}" onclick="setTaskFilter('novia')">💗 Novia (${cV})</button>
     <button class="${taskFilter==="ambos"?"active":""}" onclick="setTaskFilter('ambos')">🤝 Ambos (${cA})</button>`;
+  const match=t=>!taskFilter||who(t)===taskFilter;
 
-  const WHO=[["ambos","Ambos"],["novio","Novio"],["novia","Novia"]];
-  const html=PHASES.map(ph=>{
-    let items=S.tasks.filter(t=>canonPhase(t.phase)===ph);
-    if(taskFilter) items=items.filter(t=>who(t)===taskFilter);
-    if(!items.length) return "";
-    const done=items.filter(i=>i.done).length;
-    return `<div class="phase"><h3>${ph} <span class="badge">${done}/${items.length}</span></h3>
-      ${items.map(t=>{const w=who(t); return `<div class="task ${t.done?"done":""}">
-        <input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${t.id}',this.checked)">
-        <input class="t-title" value="${esc(t.title)}" onchange="upd('tasks','${t.id}','title',this.value)">
-        <select class="who-sel who-${w}" title="Responsable" onchange="upd('tasks','${t.id}','who',this.value);renderTasks()">
-          ${WHO.map(([v,l])=>`<option value="${v}" ${w===v?"selected":""}>${l}</option>`).join("")}</select>
-        <input type="date" value="${t.due||""}" title="Fecha límite" onchange="upd('tasks','${t.id}','due',this.value)">
-        <button class="icon" title="Eliminar" onclick="del('tasks','${t.id}');renderTasks()">🗑</button></div>`;}).join("")}
+  const pendHtml=PHASES.map(ph=>{
+    const inPhase=S.tasks.filter(t=>canonPhase(t.phase)===ph && match(t));
+    const pend=inPhase.filter(t=>!t.done);
+    if(!pend.length) return "";
+    const done=inPhase.length-pend.length;
+    return `<div class="phase"><h3>${ph} <span class="badge">${done}/${inPhase.length}</span></h3>
+      ${pend.map(t=>taskRow(t,false)).join("")}
       <div style="margin-top:8px"><button class="btn ghost" onclick="addTask('${ph}')">+ Agregar tarea</button></div></div>`;
   }).join("");
-  document.getElementById("tasksWrap").innerHTML = html || `<div class="empty">No hay tareas ${taskFilter==="novio"?"del novio":taskFilter==="novia"?"de la novia":taskFilter==="ambos"?"compartidas":""} todavía. Asigna alguna con el selector de responsable.</div>`;
+
+  const doneTasks=S.tasks.filter(t=>match(t) && t.done);
+  const doneHtml=doneTasks.length? `<div class="phase done-section"><h3>✓ Completadas <span class="badge">${doneTasks.length}</span></h3>
+    ${doneTasks.map(t=>taskRow(t,true)).join("")}</div>` : "";
+
+  const body=pendHtml+doneHtml;
+  document.getElementById("tasksWrap").innerHTML = body || `<div class="empty">No hay tareas ${taskFilter==="novio"?"del novio":taskFilter==="novia"?"de la novia":taskFilter==="ambos"?"compartidas":""} todavía.</div>`;
 }
 function addTask(phase){ S.tasks.push({id:uid(),title:"",phase,due:"",done:false,who:taskFilter||"ambos"}); save(); renderTasks(); }
 function toggleTask(id,val){ const t=S.tasks.find(x=>x.id===id); if(t){ t.done=val; save(); renderTasks(); renderDash(); } }
@@ -982,6 +1015,52 @@ function chipHtml(g,assigned){
 }
 let mesaView="plano";
 function toggleMesaView(){ mesaView = mesaView==="plano"?"lista":"plano"; renderMesas(); }
+// Hoja imprimible / PDF con el orden de invitados por mesa
+function printMesas(){
+  const tables=S.tables||[];
+  const tableIds=new Set(tables.map(t=>t.id));
+  const sinAsig=S.guests.filter(g=>!g.table||!tableIds.has(g.table));
+  const s=S.settings;
+  const li=g=>`<li>${esc(g.name)}${(+g.count>1)?` <i>×${g.count}</i>`:""}</li>`;
+  let blocks=tables.map(t=>{
+    const gs=S.guests.filter(g=>g.table===t.id);
+    const occ=gs.reduce((a,g)=>a+(+g.count||0),0);
+    return `<div class="mt"><h3>${esc(t.name)} <span class="cap">(${occ}${t.seats?"/"+t.seats:""})</span></h3><ol>${gs.map(li).join("")||'<li class="vacia">— vacía —</li>'}</ol></div>`;
+  }).join("");
+  if(sinAsig.length) blocks+=`<div class="mt sa"><h3>Sin asignar <span class="cap">(${sinAsig.reduce((a,g)=>a+(+g.count||0),0)})</span></h3><ol>${sinAsig.map(li).join("")}</ol></div>`;
+  const title=(s.name1||s.name2)?`${esc(s.name1||"")} & ${esc(s.name2||"")}`:"Nuestra boda";
+  const fecha=s.date?new Date(s.date+"T00:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"}):"";
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Mesas — ${title}</title>
+<style>
+@page{ size:A4; margin:11mm }
+*{box-sizing:border-box}
+body{font-family:Georgia,'Times New Roman',serif; color:#222; margin:0}
+header{text-align:center; margin-bottom:12px}
+header h1{font-size:20px; margin:0; color:#a8853f}
+header p{font-size:11px; color:#666; margin:3px 0 0; letter-spacing:.5px}
+.grid{column-count:4; column-gap:12px}
+@media(max-width:800px){ .grid{column-count:2} }
+.mt{break-inside:avoid; -webkit-column-break-inside:avoid; margin:0 0 9px; padding:6px 8px; border:1px solid #ddd; border-radius:6px}
+.mt.sa{border-color:#caa}
+.mt h3{font-size:12px; margin:0 0 3px; border-bottom:1px solid #eee; padding-bottom:2px}
+.mt .cap{font-weight:normal; color:#999; font-size:10px}
+.mt ol{margin:0; padding-left:17px}
+.mt li{font-size:10.5px; line-height:1.5}
+.mt i{color:#999; font-style:normal}
+.vacia{list-style:none; color:#bbb; margin-left:-17px}
+.tip{position:fixed; top:8px; right:10px; font-family:system-ui,sans-serif; font-size:11px; color:#888}
+@media print{ .tip{display:none} }
+</style></head>
+<body>
+<div class="tip">Usa «Guardar como PDF» en el destino de impresión</div>
+<header><h1>${title}</h1><p>ACOMODO DE MESAS${fecha?" · "+fecha.toUpperCase():""}</p></header>
+<div class="grid">${blocks||'<p>No hay mesas creadas.</p>'}</div>
+<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script>
+</body></html>`;
+  const w=window.open("","_blank");
+  if(!w){ alert("Permite las ventanas emergentes para poder imprimir."); return; }
+  w.document.write(html); w.document.close();
+}
 function renderMesas(){
   const tables=S.tables||[];
   const tableIds=new Set(tables.map(t=>t.id));
