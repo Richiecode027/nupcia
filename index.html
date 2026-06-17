@@ -215,6 +215,14 @@
   .who-tag.novio{color:#3f6fa8; background:#eef4fb}
   .who-tag.novia{color:#a8537e; background:#fbeef5}
   @media(max-width:560px){ .task{flex-wrap:wrap} .task .t-title{flex:1 1 60%} }
+
+  /* Cuenta regresiva en vivo */
+  .cd-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; text-align:center}
+  .cd-box{background:linear-gradient(160deg,var(--blush),#fff); border:1px solid var(--line); border-radius:14px; padding:18px 8px}
+  .cd-num{font-family:Georgia,serif; font-size:42px; font-weight:700; color:var(--gold-deep); line-height:1; font-variant-numeric:tabular-nums}
+  .cd-lbl{font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin-top:7px}
+  .cd-big{grid-column:1/-1; font-family:Georgia,serif; font-size:30px; color:var(--gold-deep); padding:10px}
+  @media(max-width:560px){ .cd-num{font-size:30px} .cd-box{padding:14px 4px} }
 </style>
 </head>
 <body>
@@ -260,6 +268,10 @@
 <div class="wrap">
   <!-- RESUMEN -->
   <div class="panel active" id="tab-resumen">
+    <section class="block" id="countdownBlock" style="display:none">
+      <div class="sec-head"><div><h2>Cuenta regresiva</h2><div class="desc" id="cdSub">Tiempo para el gran día 💍</div></div></div>
+      <div class="cd-grid" id="countdown"></div>
+    </section>
     <section class="block">
       <div class="sec-head"><div><h2>Resumen general</h2><div class="desc">Todo lo importante de un vistazo</div></div></div>
       <div class="cards" id="dashCards"></div>
@@ -632,6 +644,32 @@ function renderHeader(){
   const sl=document.getElementById("shareLink"); if(sl) sl.value=shareUrl();
 }
 
+/* ---------- Cuenta regresiva en vivo ---------- */
+function renderCountdown(){
+  const block=document.getElementById("countdownBlock");
+  const el=document.getElementById("countdown");
+  const sub=document.getElementById("cdSub");
+  const date=S.settings && S.settings.date;
+  if(!date){ block.style.display="none"; return; }
+  const target=new Date(date+"T00:00:00").getTime();
+  let diff=target-Date.now();
+  if(diff<=-86400000){ block.style.display="none"; return; }   // ya pasó la boda
+  block.style.display="";
+  if(diff<=0){ el.innerHTML=`<div class="cd-big">¡Hoy es el gran día! 💍🥂</div>`; sub.textContent="¡Felicidades!"; return; }
+  const d=Math.floor(diff/86400000),
+        h=Math.floor(diff%86400000/3600000),
+        m=Math.floor(diff%3600000/60000),
+        s=Math.floor(diff%60000/1000);
+  const p=n=>String(n).padStart(2,"0");
+  el.innerHTML=`
+    <div class="cd-box"><div class="cd-num">${d}</div><div class="cd-lbl">Días</div></div>
+    <div class="cd-box"><div class="cd-num">${p(h)}</div><div class="cd-lbl">Horas</div></div>
+    <div class="cd-box"><div class="cd-num">${p(m)}</div><div class="cd-lbl">Minutos</div></div>
+    <div class="cd-box"><div class="cd-num">${p(s)}</div><div class="cd-lbl">Segundos</div></div>`;
+  sub.textContent="Tiempo para el gran día 💍";
+}
+setInterval(renderCountdown, 1000);
+
 /* ---------- Dashboard ---------- */
 function renderDash(){
   const b=S.budget,g=S.guests,t=S.tasks;
@@ -880,7 +918,7 @@ function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.valu
 function exportData(){ const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}); const a=document.createElement("a"); const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,""); a.href=URL.createObjectURL(blob); a.download=`nupcia-${tag}-${new Date().toISOString().slice(0,10)}.json`; a.click(); toast("Respaldo descargado ✓"); }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
+function renderAll(){ renderHeader(); renderCountdown(); renderDash(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });
