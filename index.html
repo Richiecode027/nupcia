@@ -227,6 +227,18 @@
   .leyenda span{display:inline-flex; align-items:center; gap:6px}
   .leyenda i{width:12px; height:12px; border-radius:3px; display:inline-block}
 
+  /* Gráficas de presupuesto */
+  .chart-block{margin-top:16px}
+  .chart-block .k{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px}
+  .cover-bar{display:flex; height:26px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#f3ece6}
+  .cover-bar .seg{height:100%}
+  .cbar{display:flex; align-items:center; gap:10px; margin:6px 0}
+  .cbar-l{width:140px; font-size:12.5px; text-align:right; color:var(--ink); flex:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .cbar-track{flex:1; background:var(--sage-light); border-radius:7px; height:16px; overflow:hidden}
+  .cbar-fill{height:100%; background:linear-gradient(90deg,var(--gold),var(--gold-deep)); border-radius:7px}
+  .cbar-v{width:92px; text-align:right; font-size:12.5px; font-variant-numeric:tabular-nums; color:var(--muted); flex:none}
+  @media(max-width:560px){ .cbar-l{width:96px} .cbar-v{width:74px} }
+
   /* Plano visual de mesas */
   .seat-plano{display:flex; flex-wrap:wrap; gap:18px 26px; margin-top:18px; justify-content:center}
   .seat-table{position:relative; flex:none}
@@ -335,6 +347,11 @@
         <span><i style="background:#f4eefa; border:1px solid #ddccef"></i> Rubro donado</span>
       </div>
     </section>
+
+    <section class="block">
+      <div class="sec-head"><div><h2>Gráficas</h2><div class="desc">Cobertura del presupuesto y gasto por categoría</div></div></div>
+      <div id="budgetChart"></div>
+    </section>
   </div>
 
   <!-- INVITADOS -->
@@ -342,7 +359,11 @@
     <section class="block">
       <div class="sec-head">
         <div><h2>Lista de invitados</h2><div class="desc">Confirmaciones (RSVP) y asignación de mesas</div></div>
-        <button class="btn primary" onclick="addGuest()">+ Agregar invitado</button>
+        <div class="toolbar">
+          <button class="btn" onclick="printGuests()">🖨 Imprimir / PDF</button>
+          <button class="btn" onclick="exportGuestsCSV()">⬇ Exportar CSV</button>
+          <button class="btn primary" onclick="addGuest()">+ Agregar invitado</button>
+        </div>
       </div>
       <div class="cards" id="guestStats" style="margin-bottom:14px"></div>
       <div class="filters">
@@ -810,11 +831,105 @@ function renderBudget(){
     <div class="stat"><div class="k">Ahorro</div><div class="v small" style="color:var(--gold-deep)">${money(ahorro)}</div></div>
     <div class="stat"><div class="k">${falta>0?"Falta por cubrir":"Cubierto"}</div><div class="v small" style="color:${falta>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(falta))}</div></div>
   </div>`;
+  renderBudgetChart();
+}
+function renderBudgetChart(){
+  const el=document.getElementById("budgetChart"); if(!el) return;
+  const monto=S.budget.reduce((a,x)=>a+(+x.monto||0),0);
+  const abonReal=S.budget.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
+  const donado=S.budget.reduce((a,x)=>a+(x.donado?(+x.monto||0):0),0);
+  const ahorro=(S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0);
+  const cubierto=abonReal+donado+ahorro;
+  const falta=Math.max(0,monto-cubierto);
+  const den=Math.max(monto,cubierto,1);
+  const seg=(v,color,label)=> v>0?`<div class="seg" style="width:${(v/den*100).toFixed(2)}%;background:${color}" title="${label}: ${money(v)}"></div>`:"";
+  const byCat={};
+  S.budget.forEach(x=>{ const c=(x.category||"Sin categoría"); byCat[c]=(byCat[c]||0)+(+x.monto||0); });
+  const cats=Object.keys(byCat).map(c=>({c,v:byCat[c]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+  const max=cats.length?cats[0].v:1;
+  const barsCat=cats.map(x=>`<div class="cbar"><div class="cbar-l" title="${esc(x.c)}">${esc(x.c)}</div><div class="cbar-track"><div class="cbar-fill" style="width:${(x.v/max*100).toFixed(1)}%"></div></div><div class="cbar-v">${money(x.v)}</div></div>`).join("");
+  el.innerHTML=`
+    <div class="chart-block">
+      <div class="k">Cobertura del presupuesto · ${money(cubierto)} de ${money(monto)}</div>
+      <div class="cover-bar">${seg(abonReal,"var(--ok)","Abonado")}${seg(donado,"#7a5ba8","Donado")}${seg(ahorro,"var(--gold)","Ahorro")}${seg(falta,"#e3d4c8","Falta")}</div>
+      <div class="leyenda">
+        <span><i style="background:var(--ok)"></i> Abonado ${money(abonReal)}</span>
+        <span><i style="background:#7a5ba8"></i> Donado ${money(donado)}</span>
+        <span><i style="background:var(--gold)"></i> Ahorro ${money(ahorro)}</span>
+        ${falta>0?`<span><i style="background:#e3d4c8"></i> Falta ${money(falta)}</span>`:`<span style="color:var(--ok)">✓ Totalmente cubierto</span>`}
+      </div>
+    </div>
+    <div class="chart-block">
+      <div class="k">Gasto por categoría</div>
+      ${barsCat||'<p class="muted" style="font-size:13px;margin:0">Aún no hay gastos.</p>'}
+    </div>`;
 }
 
 /* ---------- Invitados ---------- */
 function addGuest(){ S.guests.push({id:uid(),name:"",group:"",count:1,rsvp:"pend",table:"",contact:""}); save(); renderGuests(); }
 function tableName(id){ const t=(S.tables||[]).find(x=>x.id===id); return t?t.name:""; }
+const RSVP_LABEL={si:"Confirmado",no:"No asiste",pend:"Pendiente"};
+function exportGuestsCSV(){
+  const rows=[["Nombre","Grupo","Personas","Confirmación","Mesa","Contacto"]];
+  S.guests.forEach(g=>rows.push([g.name||"", g.group||"", g.count||0, RSVP_LABEL[g.rsvp]||"Pendiente", tableName(g.table)||"", g.contact||""]));
+  const csv=rows.map(r=>r.map(c=>{ const s=String(c==null?"":c); return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,"");
+  a.href=URL.createObjectURL(blob); a.download=`invitados-${tag}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); toast("CSV descargado ✓");
+}
+function printGuests(){
+  const s=S.settings;
+  const total=S.guests.reduce((a,g)=>a+(+g.count||0),0);
+  const si=S.guests.filter(g=>g.rsvp==="si").reduce((a,g)=>a+(+g.count||0),0);
+  const no=S.guests.filter(g=>g.rsvp==="no").reduce((a,g)=>a+(+g.count||0),0);
+  const pend=total-si-no;
+  const mark=g=>g.rsvp==="si"?"✓":g.rsvp==="no"?"✗":"○";
+  const groups=[...new Set(S.guests.map(g=>g.group||"Sin grupo"))];
+  const blocks=groups.map(grp=>{
+    const gs=S.guests.filter(g=>(g.group||"Sin grupo")===grp);
+    const cnt=gs.reduce((a,g)=>a+(+g.count||0),0);
+    return `<div class="mt"><h3>${esc(grp)} <span class="cap">(${cnt})</span></h3><ul>${gs.map(g=>`<li class="r-${g.rsvp||"pend"}"><span class="mk">${mark(g)}</span>${esc(g.name)}${(+g.count>1)?` <i>×${g.count}</i>`:""}</li>`).join("")}</ul></div>`;
+  }).join("");
+  const title=(s.name1||s.name2)?`${esc(s.name1||"")} & ${esc(s.name2||"")}`:"Nuestra boda";
+  const fecha=s.date?new Date(s.date+"T00:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long",year:"numeric"}):"";
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Invitados — ${title}</title>
+<style>
+@page{ size:A4; margin:11mm }
+*{box-sizing:border-box}
+body{font-family:Georgia,'Times New Roman',serif; color:#222; margin:0}
+header{text-align:center; margin-bottom:8px}
+header h1{font-size:20px; margin:0; color:#a8853f}
+header p{font-size:11px; color:#666; margin:3px 0 0; letter-spacing:.5px}
+.resumen{text-align:center; font-size:11px; color:#444; margin-bottom:10px}
+.resumen b{color:#222}
+.grid{column-count:3; column-gap:13px}
+@media(max-width:800px){ .grid{column-count:2} }
+.mt{break-inside:avoid; -webkit-column-break-inside:avoid; margin:0 0 9px; padding:6px 8px; border:1px solid #ddd; border-radius:6px}
+.mt h3{font-size:12px; margin:0 0 3px; border-bottom:1px solid #eee; padding-bottom:2px}
+.mt .cap{font-weight:normal; color:#999; font-size:10px}
+.mt ul{margin:0; padding:0; list-style:none}
+.mt li{font-size:10.5px; line-height:1.55}
+.mt .mk{display:inline-block; width:13px; color:#999; font-weight:700}
+.mt li.r-si .mk{color:#3a8a5e}
+.mt li.r-no .mk{color:#c0584f}
+.mt li.r-no{color:#999; text-decoration:line-through}
+.mt i{color:#999; font-style:normal}
+.tip{position:fixed; top:8px; right:10px; font-family:system-ui,sans-serif; font-size:11px; color:#888}
+@media print{ .tip{display:none} }
+</style></head>
+<body>
+<div class="tip">Usa «Guardar como PDF» en el destino de impresión</div>
+<header><h1>${title}</h1><p>LISTA DE INVITADOS${fecha?" · "+fecha.toUpperCase():""}</p></header>
+<div class="resumen"><b>${total}</b> personas · <b>${si}</b> confirmadas · <b>${pend}</b> pendientes · <b>${no}</b> no asisten &nbsp;|&nbsp; ✓ confirma · ○ pendiente · ✗ no asiste</div>
+<div class="grid">${blocks||'<p>No hay invitados.</p>'}</div>
+<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script>
+</body></html>`;
+  const w=window.open("","_blank");
+  if(!w){ alert("Permite las ventanas emergentes para poder imprimir."); return; }
+  w.document.write(html); w.document.close();
+}
 function renderGuests(){
   // poblar filtro de grupos conservando selección
   const groups=[...new Set(S.guests.map(g=>g.group).filter(x=>x))].sort();
