@@ -634,9 +634,9 @@ function updateCount(){
           m=Math.floor(diff%3600000/60000),
           sec=Math.floor(diff%60000/1000),
           p=n=>String(n).padStart(2,"0");
-    c.innerHTML=`<div class="box"><div class="num">${d}</div><div class="lbl">días</div></div>
+    c.innerHTML=`<div class="box"><div class="num">${(d/30.4).toFixed(1)}</div><div class="lbl">meses</div></div>
       <div class="box"><div class="num">${Math.floor(d/7)}</div><div class="lbl">semanas</div></div>
-      <div class="box"><div class="num">${(d/30.4).toFixed(1)}</div><div class="lbl">meses</div></div>
+      <div class="box"><div class="num">${d}</div><div class="lbl">días</div></div>
       <div class="box"><div class="num">${p(h)}</div><div class="lbl">horas</div></div>
       <div class="box"><div class="num">${p(m)}</div><div class="lbl">min</div></div>
       <div class="box"><div class="num">${p(sec)}</div><div class="lbl">seg</div></div>`;
