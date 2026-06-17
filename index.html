@@ -223,6 +223,30 @@
   .leyenda{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:10px}
   .leyenda span{display:inline-flex; align-items:center; gap:6px}
   .leyenda i{width:12px; height:12px; border-radius:3px; display:inline-block}
+
+  /* Plano visual de mesas */
+  .seat-plano{display:flex; flex-wrap:wrap; gap:18px 26px; margin-top:18px; justify-content:center}
+  .seat-table{position:relative; flex:none}
+  .seat-table.dragover .seat-circle{border-color:var(--sage); box-shadow:0 0 0 5px var(--sage-light)}
+  .seat-circle{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:150px; height:150px; border-radius:50%;
+    background:radial-gradient(circle at 38% 30%, #ffffff, var(--blush) 62%, var(--blush-deep) 100%);
+    border:3px solid var(--gold); box-shadow:var(--shadow), inset 0 0 0 6px rgba(255,255,255,.45);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:10px}
+  .seat-circle.over{border-color:var(--danger)}
+  .seat-cname{border:none; background:transparent; text-align:center; font-family:Georgia,serif; font-weight:600; font-size:14.5px;
+    color:var(--ink); width:118px; padding:2px; border-radius:6px}
+  .seat-cname:focus{outline:none; background:rgba(255,255,255,.7)}
+  .seat-occ{font-size:12px; color:var(--muted); margin-top:3px; font-variant-numeric:tabular-nums}
+  .seat-occ.over{color:var(--danger); font-weight:700}
+  .seat-del{position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font-size:13px; opacity:.55}
+  .seat-del:hover{opacity:1}
+  .seat-name{position:absolute; transform:translate(-50%,-50%); background:#fff; border:1px solid var(--line); border-radius:20px;
+    padding:3px 9px; font-size:11.5px; line-height:1.2; white-space:nowrap; cursor:grab; box-shadow:0 2px 7px rgba(80,60,50,.12);
+    max-width:118px; overflow:hidden; text-overflow:ellipsis; transition:border-color .12s}
+  .seat-name:hover{border-color:var(--sage); z-index:6}
+  .seat-name:active{cursor:grabbing}
+  .seat-name .x{color:var(--muted); margin-right:4px; cursor:pointer; font-weight:700}
+  .seat-name .x:hover{color:var(--danger)}
 </style>
 </head>
 <body>
@@ -345,13 +369,15 @@
       <div class="sec-head">
         <div><h2>Acomodo de mesas</h2><div class="desc">Arrastra a cada invitado a su mesa, o usa el acomodo automático por familia.</div></div>
         <div class="toolbar">
+          <button class="btn" id="viewToggle" onclick="toggleMesaView()">📋 Ver como lista</button>
           <button class="btn" onclick="autoArrange()">✨ Acomodo automático</button>
           <button class="btn primary" onclick="addTable()">+ Agregar mesa</button>
         </div>
       </div>
-      <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span></div>
+      <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span> <span class="muted" style="font-size:12px">· arrastra un nombre a una mesa</span></div>
       <div class="pool" id="mesaPool" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'')"></div>
       <div class="mesas-grid" id="mesasGrid"></div>
+      <div class="seat-plano" id="mesaPlano"></div>
     </section>
   </div>
 
@@ -935,12 +961,23 @@ function chipHtml(g,assigned){
   else if(tables.length){ extra=`<select onchange="assignGuest('${g.id}',this.value)" onclick="event.stopPropagation()" style="border:none;background:transparent;font-size:11px;color:var(--gold-deep);cursor:pointer"><option value="">→ mesa</option>${tables.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>`; }
   return `<span class="chip ${assigned?"assigned":""}" draggable="true" ondragstart="dragGuest(event,'${g.id}')">${esc(g.name)}${cnt}${extra}</span>`;
 }
+let mesaView="plano";
+function toggleMesaView(){ mesaView = mesaView==="plano"?"lista":"plano"; renderMesas(); }
 function renderMesas(){
   const tables=S.tables||[];
   const tableIds=new Set(tables.map(t=>t.id));
   const pool=S.guests.filter(g=> !g.table || !tableIds.has(g.table));
   document.getElementById("mesaPool").innerHTML = pool.length? pool.map(g=>chipHtml(g,false)).join("") : '<span class="muted" style="font-size:13px">¡Todos los invitados están asignados! 🎉</span>';
   document.getElementById("poolCount").textContent = "· "+pool.reduce((a,g)=>a+(+g.count||0),0)+" personas";
+  const lista=mesaView==="lista";
+  const grid=document.getElementById("mesasGrid"), plano=document.getElementById("mesaPlano"), tg=document.getElementById("viewToggle");
+  if(grid) grid.style.display=lista?"":"none";
+  if(plano) plano.style.display=lista?"none":"";
+  if(tg) tg.textContent=lista?"🪑 Ver como plano":"📋 Ver como lista";
+  if(lista) renderMesasLista(); else renderMesasPlano();
+}
+function renderMesasLista(){
+  const tables=S.tables||[];
   document.getElementById("mesasGrid").innerHTML = tables.length? tables.map(t=>{
     const gs=S.guests.filter(g=>g.table===t.id);
     const occ=gs.reduce((a,g)=>a+(+g.count||0),0);
@@ -955,6 +992,32 @@ function renderMesas(){
       <div>${gs.length?gs.map(g=>chipHtml(g,true)).join(""):'<span class="muted" style="font-size:12px">Arrastra invitados aquí</span>'}</div>
     </div>`;
   }).join("") : '<div class="empty">Crea tu primera mesa con «+ Agregar mesa».</div>';
+}
+function renderMesasPlano(){
+  const tables=S.tables||[];
+  const cont=document.getElementById("mesaPlano");
+  if(!tables.length){ cont.innerHTML='<div class="empty">Crea mesas o usa «✨ Acomodo automático».</div>'; return; }
+  const SZ=300, C=SZ/2, R=116;   // tamaño contenedor, centro, radio de nombres
+  cont.innerHTML = tables.map(t=>{
+    const gs=S.guests.filter(g=>g.table===t.id);
+    const occ=gs.reduce((a,g)=>a+(+g.count||0),0);
+    const over=t.seats && occ>t.seats;
+    const n=gs.length;
+    const names=gs.map((g,i)=>{
+      const ang=(-90 + i*360/Math.max(n,1))*Math.PI/180;
+      const x=C+R*Math.cos(ang), y=C+R*Math.sin(ang);
+      const cnt=(+g.count>1)?(" ×"+g.count):"";
+      return `<span class="seat-name" draggable="true" ondragstart="dragGuest(event,'${g.id}')" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px" title="${esc(g.name)}"><span class="x" onclick="assignGuest('${g.id}','')" title="Quitar">✕</span>${esc(g.name)}${cnt}</span>`;
+    }).join("");
+    return `<div class="seat-table" style="width:${SZ}px;height:${SZ}px" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')">
+      ${names}
+      <div class="seat-circle ${over?"over":""}">
+        <input class="seat-cname" value="${esc(t.name)}" title="${esc(t.name)}" onchange="updTable('${t.id}','name',this.value)">
+        <div class="seat-occ ${over?"over":""}">${occ}/${t.seats||"—"}</div>
+        <button class="icon seat-del" title="Eliminar mesa" onclick="delTable('${t.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 /* ---------- Cronograma ---------- */
