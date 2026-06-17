@@ -444,6 +444,19 @@
 /* ---------- Estado base ---------- */
 const PHASES = ["12+ meses antes","9–12 meses antes","6–9 meses antes","3–6 meses antes","1–3 meses antes","Último mes","Semana de la boda"];
 function uid(){ return Math.random().toString(36).slice(2,9); }
+// Normaliza etapas (guion normal vs. guion largo, espacios) a la forma canónica de PHASES
+function canonPhase(p){
+  if(!p) return p;
+  const norm=s=>String(s).toLowerCase().replace(/[–—]/g,"-").replace(/\s+/g," ").trim();
+  const np=norm(p);
+  return PHASES.find(ph=>norm(ph)===np)||p;
+}
+function normalizePhases(raw){
+  if(!raw||!Array.isArray(raw.tasks)) return false;
+  let changed=false;
+  raw.tasks.forEach(t=>{ const c=canonPhase(t.phase); if(c!==t.phase){ t.phase=c; changed=true; } });
+  return changed;
+}
 function seedTasks(){
   const data=[
     ["12+ meses antes",["Definir presupuesto total","Hacer lista preliminar de invitados","Elegir fecha y temporada","Reservar el lugar de la ceremonia","Reservar el lugar de la recepción","Decidir el estilo / tema de la boda"]],
@@ -487,7 +500,7 @@ const URL_ = "https://pbjthkfiuapwnmwhlrxp.supabase.co";
 const KEY_ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBianRoa2ZpdWFwd25td2hscnhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDgzMzQsImV4cCI6MjA5NzE4NDMzNH0.do3K1RXfmCqi3WwqFTOBfdDdhGL-6mn6ZFqktgN3PuA";
 const SPACE = "nupcia-principal";
 let SB=null, channel=null, DEVICE=uid()+uid(),
-    applyingRemote=false, saveT=null, pendingRemote=null, ready=false;
+    applyingRemote=false, saveT=null, pendingRemote=null, ready=false, hasLocalEdits=false;
 
 function setStatus(state, text){
   const el=document.getElementById("status");
@@ -497,7 +510,7 @@ function setStatus(state, text){
 
 function startApp(){
   // carga inmediata desde caché para no ver pantalla vacía
-  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); S=Object.assign(defaults(), raw); } }catch(e){}
+  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); normalizePhases(raw); S=Object.assign(defaults(), raw); } }catch(e){}
   renderAll();
   connectSupabase();
 }
@@ -515,8 +528,11 @@ function connectSupabase(){
       alert("No se pudo leer la base de datos.\n¿Ejecutaste el script SQL (tabla + permisos) en Supabase?\n\n"+error.message);
       return;
     }
-    if(data && data.data){ const raw=data.data; const mig=migrateIfNeeded(raw); onRemote(raw); if(mig) save(true); }
-    else pushFull();
+    if(data && data.data){
+      const raw=data.data;
+      if(hasLocalEdits){ save(true); }                 // el usuario ya editó: no sobrescribir, escribir lo local
+      else { const m1=migrateIfNeeded(raw), m2=normalizePhases(raw); onRemote(raw); if(m1||m2) save(true); }
+    } else pushFull();
     ready=true; setStatus("online","Sincronizado en tiempo real");
   });
 
@@ -554,6 +570,7 @@ function pushFull(){ save(true); }
 
 function save(immediate){
   if(applyingRemote) return;
+  hasLocalEdits=true;
   S._ts=Date.now(); S._by=DEVICE;
   try{ localStorage.setItem(CACHE_KEY, JSON.stringify(S)); }catch(e){}
   if(!SB) return;
@@ -721,7 +738,7 @@ function renderTasks(){
 
   const WHO=[["ambos","Ambos"],["novio","Novio"],["novia","Novia"]];
   const html=PHASES.map(ph=>{
-    let items=S.tasks.filter(t=>t.phase===ph);
+    let items=S.tasks.filter(t=>canonPhase(t.phase)===ph);
     if(taskFilter) items=items.filter(t=>who(t)===taskFilter);
     if(!items.length) return "";
     const done=items.filter(i=>i.done).length;
