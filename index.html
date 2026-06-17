@@ -341,7 +341,6 @@
     <section class="block">
       <div class="sec-head">
         <div><h2>Lista de tareas</h2><div class="desc">Repártanse el trabajo: asignen cada tarea al novio, la novia o ambos.</div></div>
-        <button class="btn" onclick="resetTasks()">↺ Restaurar lista sugerida</button>
       </div>
       <div class="tfilter" id="taskFilterBar"></div>
       <div id="tasksWrap"></div>
@@ -772,7 +771,6 @@ function renderTasks(){
 }
 function addTask(phase){ S.tasks.push({id:uid(),title:"",phase,due:"",done:false,who:taskFilter||"ambos"}); save(); renderTasks(); }
 function toggleTask(id,val){ const t=S.tasks.find(x=>x.id===id); if(t){ t.done=val; save(); renderTasks(); renderDash(); } }
-function resetTasks(){ if(confirm("Esto restaura la lista sugerida. Se perderán las tareas que agregaste o marcaste. ¿Continuar?")){ S.tasks=seedTasks(); save(); renderTasks(); renderDash(); toast("Lista restaurada"); } }
 
 /* ---------- Participantes ---------- */
 function addParticipant(){ if(!S.participants) S.participants=[]; S.participants.push({id:uid(),role:"",name:"",task:"",contact:""}); save(); renderParticipants(); }
