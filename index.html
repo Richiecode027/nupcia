@@ -247,6 +247,7 @@
   .seat-name:active{cursor:grabbing}
   .seat-name .x{color:var(--muted); margin-right:4px; cursor:pointer; font-weight:700}
   .seat-name .x:hover{color:var(--danger)}
+  .seat-name.drop-here, .chip.drop-here{border-color:var(--gold); box-shadow:0 0 0 3px var(--blush-deep); z-index:7}
 </style>
 </head>
 <body>
@@ -953,13 +954,31 @@ function dragGuest(e,id){ dragGuestId=id; try{ e.dataTransfer.setData("text/plai
 function mesaDragOver(e,el){ e.preventDefault(); el.classList.add("dragover"); try{ e.dataTransfer.dropEffect="move"; }catch(_){} }
 function mesaDrop(e,tableId){ e.preventDefault(); const id=dragGuestId||(e.dataTransfer&&e.dataTransfer.getData("text/plain")); document.querySelectorAll(".dragover").forEach(x=>x.classList.remove("dragover")); dragGuestId=null; if(!id) return; const g=S.guests.find(x=>x.id===id); if(g){ g.table=tableId; save(); renderMesas(); renderGuests(); } }
 
+// Soltar un nombre ENCIMA de otro: lo coloca justo a su lado (mismo lugar de la mesa)
+function nameDragOver(e,el){ e.preventDefault(); e.stopPropagation(); el.classList.add("drop-here"); try{ e.dataTransfer.dropEffect="move"; }catch(_){} }
+function nameDrop(e,targetId,el){
+  e.preventDefault(); e.stopPropagation();
+  if(el) el.classList.remove("drop-here");
+  document.querySelectorAll(".dragover,.drop-here").forEach(x=>x.classList.remove("dragover","drop-here"));
+  const srcId=dragGuestId||(e.dataTransfer&&e.dataTransfer.getData("text/plain")); dragGuestId=null;
+  if(!srcId || srcId===targetId) return;
+  const arr=S.guests;
+  const si=arr.findIndex(g=>g.id===srcId); if(si<0) return;
+  const [src]=arr.splice(si,1);
+  const ti=arr.findIndex(g=>g.id===targetId); if(ti<0){ arr.splice(si,0,src); return; }
+  src.table=arr[ti].table;        // misma mesa que el objetivo
+  arr.splice(ti,0,src);           // lo inserta junto a él
+  save(); renderMesas(); renderGuests();
+}
+
 function chipHtml(g,assigned){
   const cnt=(+g.count>1)?(" ×"+g.count):"";
   const tables=S.tables||[];
   let extra="";
   if(assigned){ extra=`<span class="x" title="Quitar de la mesa" onclick="assignGuest('${g.id}','')">✕</span>`; }
   else if(tables.length){ extra=`<select onchange="assignGuest('${g.id}',this.value)" onclick="event.stopPropagation()" style="border:none;background:transparent;font-size:11px;color:var(--gold-deep);cursor:pointer"><option value="">→ mesa</option>${tables.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>`; }
-  return `<span class="chip ${assigned?"assigned":""}" draggable="true" ondragstart="dragGuest(event,'${g.id}')">${esc(g.name)}${cnt}${extra}</span>`;
+  const dropAttrs = assigned ? `ondragover="nameDragOver(event,this)" ondragleave="this.classList.remove('drop-here')" ondrop="nameDrop(event,'${g.id}',this)"` : "";
+  return `<span class="chip ${assigned?"assigned":""}" draggable="true" ondragstart="dragGuest(event,'${g.id}')" ${dropAttrs}>${esc(g.name)}${cnt}${extra}</span>`;
 }
 let mesaView="plano";
 function toggleMesaView(){ mesaView = mesaView==="plano"?"lista":"plano"; renderMesas(); }
@@ -1007,7 +1026,7 @@ function renderMesasPlano(){
       const ang=(-90 + i*360/Math.max(n,1))*Math.PI/180;
       const x=C+R*Math.cos(ang), y=C+R*Math.sin(ang);
       const cnt=(+g.count>1)?(" ×"+g.count):"";
-      return `<span class="seat-name" draggable="true" ondragstart="dragGuest(event,'${g.id}')" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px" title="${esc(g.name)}"><span class="x" onclick="assignGuest('${g.id}','')" title="Quitar">✕</span>${esc(g.name)}${cnt}</span>`;
+      return `<span class="seat-name" draggable="true" ondragstart="dragGuest(event,'${g.id}')" ondragover="nameDragOver(event,this)" ondragleave="this.classList.remove('drop-here')" ondrop="nameDrop(event,'${g.id}',this)" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px" title="${esc(g.name)} — suelta otro nombre aquí para sentarlo a su lado"><span class="x" onclick="assignGuest('${g.id}','')" title="Quitar">✕</span>${esc(g.name)}${cnt}</span>`;
     }).join("");
     return `<div class="seat-table" style="width:${SZ}px;height:${SZ}px" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')">
       ${names}
