@@ -5,13 +5,17 @@
       <stop offset="1" stop-color="#efd9d1"/>
     </linearGradient>
     <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#c8a96a"/>
+      <stop offset="0" stop-color="#d8bd84"/>
       <stop offset="1" stop-color="#a8853f"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <circle cx="212" cy="300" r="92" fill="none" stroke="url(#gold)" stroke-width="22"/>
-  <circle cx="300" cy="300" r="92" fill="none" stroke="url(#gold)" stroke-width="22"/>
-  <path d="M256 150l22 34h-44z" fill="#a8853f"/>
-  <text x="256" y="436" font-family="Georgia, serif" font-size="58" fill="#a8853f" text-anchor="middle" font-style="italic">Nupcia</text>
+  <!-- anillos entrelazados, centrados -->
+  <circle cx="300" cy="276" r="90" fill="none" stroke="url(#gold)" stroke-width="24"/>
+  <circle cx="212" cy="276" r="90" fill="none" stroke="url(#gold)" stroke-width="24"/>
+  <!-- diamante solitario sobre el aro -->
+  <g transform="translate(300,150)">
+    <path d="M0 -30 L24 -7 L0 26 L-24 -7 Z" fill="#fffdf8" stroke="#a8853f" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M-24 -7 H24 M0 -30 V26 M-12 -18 L12 -18" stroke="#a8853f" stroke-width="3.5" fill="none" opacity="0.65"/>
+  </g>
 </svg>
