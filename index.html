@@ -217,6 +217,8 @@
   .who-tag.novia{color:#a8537e; background:#fbeef5}
   .phase.done-section{margin-top:26px; border-top:2px dashed var(--line); padding-top:10px}
   .phase.done-section h3{color:var(--muted)}
+  .phase.sinfecha{background:#fbf3e6; border:1px dashed var(--gold); border-radius:12px; padding:10px 12px; margin-bottom:16px}
+  .phase.sinfecha h3{color:var(--gold-deep)}
   @media(max-width:560px){ .task{flex-wrap:wrap} .task .t-title{flex:1 1 60%} }
 
   /* Presupuesto: colores de estado */
@@ -411,7 +413,8 @@
   <div class="panel" id="tab-tareas">
     <section class="block">
       <div class="sec-head">
-        <div><h2>Lista de tareas</h2><div class="desc">Repártanse el trabajo: asignen cada tarea al novio, la novia o ambos.</div></div>
+        <div><h2>Lista de tareas</h2><div class="desc">Ponle fecha a cada tarea y la app la coloca sola en su etapa. Asígnala al novio, la novia o ambos.</div></div>
+        <button class="btn primary" onclick="addTask()">+ Agregar tarea</button>
       </div>
       <div class="tfilter" id="taskFilterBar"></div>
       <div id="tasksWrap"></div>
@@ -984,7 +987,7 @@ function taskRow(t, showPhase){
     ${showPhase?`<span class="badge" style="font-size:10.5px;background:var(--sage-light);color:var(--sage);border-radius:20px;padding:2px 8px">${esc(t.phase)}</span>`:""}
     <select class="who-sel who-${w}" title="Responsable" onchange="upd('tasks','${t.id}','who',this.value);renderTasks()">
       ${WHO_OPTS.map(([v,l])=>`<option value="${v}" ${w===v?"selected":""}>${l}</option>`).join("")}</select>
-    <input type="date" value="${t.due||""}" title="Fecha límite" onchange="upd('tasks','${t.id}','due',this.value)">
+    <input type="date" value="${t.due||""}" title="Fecha límite (define la etapa)" onchange="setTaskDate('${t.id}',this.value)">
     <button class="icon" title="Eliminar" onclick="del('tasks','${t.id}');renderTasks()">🗑</button></div>`;
 }
 function renderTasks(){
@@ -1000,25 +1003,45 @@ function renderTasks(){
     <button class="${taskFilter==="ambos"?"active":""}" onclick="setTaskFilter('ambos')">🤝 Ambos (${cA})</button>`;
   const match=t=>!taskFilter||who(t)===taskFilter;
 
+  const sinFecha=S.tasks.filter(t=>match(t) && !t.done && !PHASES.includes(canonPhase(t.phase)));
+  const sinHtml=sinFecha.length? `<div class="phase sinfecha"><h3>📌 Sin fecha <span class="badge">${sinFecha.length}</span> <span class="muted" style="font-size:11.5px;font-weight:400">— ponle fecha para ordenarla</span></h3>
+    ${sinFecha.map(t=>taskRow(t,false)).join("")}</div>` : "";
   const pendHtml=PHASES.map(ph=>{
-    const inPhase=S.tasks.filter(t=>canonPhase(t.phase)===ph && match(t));
-    const pend=inPhase.filter(t=>!t.done);
+    const pend=S.tasks.filter(t=>canonPhase(t.phase)===ph && match(t) && !t.done);
     if(!pend.length) return "";
-    const done=inPhase.length-pend.length;
-    return `<div class="phase"><h3>${ph} <span class="badge">${done}/${inPhase.length}</span></h3>
-      ${pend.map(t=>taskRow(t,false)).join("")}
-      <div style="margin-top:8px"><button class="btn ghost" onclick="addTask('${ph}')">+ Agregar tarea</button></div></div>`;
+    return `<div class="phase"><h3>${ph} <span class="badge">${pend.length}</span></h3>
+      ${pend.map(t=>taskRow(t,false)).join("")}</div>`;
   }).join("");
 
   const doneTasks=S.tasks.filter(t=>match(t) && t.done);
   const doneHtml=doneTasks.length? `<div class="phase done-section"><h3>✓ Completadas <span class="badge">${doneTasks.length}</span></h3>
     ${doneTasks.map(t=>taskRow(t,true)).join("")}</div>` : "";
 
-  const body=pendHtml+doneHtml;
-  document.getElementById("tasksWrap").innerHTML = body || `<div class="empty">No hay tareas ${taskFilter==="novio"?"del novio":taskFilter==="novia"?"de la novia":taskFilter==="ambos"?"compartidas":""} todavía.</div>`;
+  const body=sinHtml+pendHtml+doneHtml;
+  document.getElementById("tasksWrap").innerHTML = body || `<div class="empty">No hay tareas ${taskFilter==="novio"?"del novio":taskFilter==="novia"?"de la novia":taskFilter==="ambos"?"compartidas":""} todavía. Agrega una con «+ Agregar tarea».</div>`;
 }
-function addTask(phase){ S.tasks.push({id:uid(),title:"",phase,due:"",done:false,who:taskFilter||"ambos"}); save(); renderTasks(); }
+function addTask(){ S.tasks.push({id:uid(),title:"",phase:"",due:"",done:false,who:taskFilter||"ambos"}); save(); renderTasks(); }
 function toggleTask(id,val){ const t=S.tasks.find(x=>x.id===id); if(t){ t.done=val; save(); renderTasks(); renderDash(); } }
+// Deduce la etapa de una tarea según su fecha, relativa a la fecha de la boda
+function phaseFromDate(due){
+  const wd=S.settings && S.settings.date;
+  if(!due || !wd) return "";
+  const d=Math.round((new Date(wd+"T00:00:00") - new Date(due+"T00:00:00"))/86400000);
+  if(d<=7) return "Semana de la boda";
+  if(d<=30) return "Último mes";
+  if(d<91) return "1–3 meses antes";
+  if(d<182) return "3–6 meses antes";
+  if(d<274) return "6–9 meses antes";
+  if(d<365) return "9–12 meses antes";
+  return "12+ meses antes";
+}
+function setTaskDate(id,val){
+  const t=S.tasks.find(x=>x.id===id); if(!t) return;
+  t.due=val;
+  const ph=phaseFromDate(val);
+  if(ph) t.phase=ph;
+  save(); renderTasks();
+}
 
 /* ---------- Participantes ---------- */
 function addParticipant(){ if(!S.participants) S.participants=[]; S.participants.push({id:uid(),role:"",name:"",task:"",contact:""}); save(); renderParticipants(); }
