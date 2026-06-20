@@ -832,7 +832,7 @@ function renderBudget(){
     <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
     <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
     <div class="stat"><div class="k">Ahorro</div><div class="v small" style="color:var(--gold-deep)">${money(ahorro)}</div></div>
-    <div class="stat"><div class="k">${falta>0?"Falta por cubrir":"Cubierto"}</div><div class="v small" style="color:${falta>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(falta))}</div></div>
+    <div class="stat"><div class="k">${falta>0?"Falta por cubrir":"Excedente"}</div><div class="v small" style="color:${falta>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(falta))}</div></div>
   </div>`;
   renderBudgetChart();
 }
