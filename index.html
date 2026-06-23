@@ -98,6 +98,13 @@
   .rsvp-si{background:#e7f1ea; color:var(--ok)}
   .rsvp-no{background:#f7e7e5; color:var(--danger)}
 
+  /* Confirmación recibida vía la invitación web */
+  .webconf{margin-top:5px; font-size:11px; line-height:1.35; cursor:help}
+  .webconf .wc-si{color:var(--ok); font-weight:600}
+  .webconf .wc-no{color:var(--danger); font-weight:600}
+  .webconf .wc-names{color:var(--muted)}
+  .btn.link-btn{padding:5px 8px}
+
   .bar{height:10px; background:var(--sage-light); border-radius:10px; overflow:hidden; margin-top:8px}
   .bar > span{display:block; height:100%; background:linear-gradient(90deg,var(--gold),var(--gold-deep)); border-radius:10px; transition:width .4s}
   .bar.over > span{background:linear-gradient(90deg,#e0a08f,var(--danger))}
@@ -364,6 +371,7 @@
         <div class="toolbar">
           <button class="btn" onclick="printGuests()">🖨 Imprimir / PDF</button>
           <button class="btn" onclick="exportGuestsCSV()">⬇ Exportar CSV</button>
+          <button class="btn" onclick="exportConfirmLinks()" title="Genera el enlace personalizado de cada invitado y lo exporta a CSV">🔗 Enlaces de confirmación</button>
           <button class="btn primary" onclick="addGuest()">+ Agregar invitado</button>
         </div>
       </div>
@@ -603,6 +611,10 @@ const CACHE_KEY="nupcia_cache";
 const URL_ = "https://pbjthkfiuapwnmwhlrxp.supabase.co";
 const KEY_ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBianRoa2ZpdWFwd25td2hscnhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDgzMzQsImV4cCI6MjA5NzE4NDMzNH0.do3K1RXfmCqi3WwqFTOBfdDdhGL-6mn6ZFqktgN3PuA";
 const SPACE = "nupcia-principal";
+// Base de la invitación web (para los enlaces de confirmación personalizados)
+const INVITE_BASE = "https://julissa-y-ricardo-3oct2026.netlify.app/";
+let CONF = {};            // confirmaciones recibidas vía la invitación: { guest_id: {asiste, acompanantes, mensaje, confirmado_at} }
+let confChannel = null;
 let SB=null, channel=null, DEVICE=uid()+uid(),
     applyingRemote=false, saveT=null, pendingRemote=null, ready=false, hasLocalEdits=false;
 
@@ -652,6 +664,31 @@ function connectSupabase(){
       if(status==="SUBSCRIBED" && ready) setStatus("online","Sincronizado en tiempo real");
       if(status==="CHANNEL_ERROR"||status==="TIMED_OUT") setStatus("error","Reconectando…");
     });
+
+  loadConfirmaciones();
+  subscribeConfirmaciones();
+}
+
+/* ---------- Confirmaciones recibidas vía la invitación web ---------- */
+function loadConfirmaciones(){
+  if(!SB) return;
+  SB.from("confirmaciones").select("*").then(({data,error})=>{
+    if(error){ console.warn("confirmaciones:", error.message); return; }
+    CONF={};
+    (data||[]).forEach(r=>{ CONF[r.guest_id]=r; });
+    if(typeof renderGuests==="function") renderGuests();
+  });
+}
+function subscribeConfirmaciones(){
+  if(!SB) return;
+  confChannel=SB.channel("conf-"+SPACE)
+    .on("postgres_changes",{event:"*",schema:"public",table:"confirmaciones"}, payload=>{
+      const r=payload.new; if(!r||!r.guest_id) return;
+      CONF[r.guest_id]=r;
+      if(!isEditing() && typeof renderGuests==="function") renderGuests();
+      toast("Nueva confirmación: "+(r.nombre||"invitado"));
+    })
+    .subscribe();
 }
 
 function isEditing(){
@@ -882,6 +919,42 @@ function exportGuestsCSV(){
   a.href=URL.createObjectURL(blob); a.download=`invitados-${tag}-${new Date().toISOString().slice(0,10)}.csv`;
   a.click(); toast("CSV descargado ✓");
 }
+
+/* ---------- Enlaces de confirmación personalizados ---------- */
+function ensureToken(g){
+  if(!g.token){ g.token = uid()+uid()+uid(); }   // ~21 chars, no adivinable
+  return g.token;
+}
+function confirmLink(g){
+  return INVITE_BASE + "?invitado=" + encodeURIComponent(ensureToken(g));
+}
+function copyConfirmLink(id){
+  const g=S.guests.find(x=>x.id===id); if(!g) return;
+  if(!g.name || !g.name.trim()){ toast("Ponle nombre al invitado primero"); return; }
+  const had=!!g.token;
+  const url=confirmLink(g);
+  if(!had) save();   // persistimos el token recién generado
+  navigator.clipboard.writeText(url).then(
+    ()=>toast("Enlace de "+g.name.split(" ")[0]+" copiado ✓"),
+    ()=>{ prompt("Copia el enlace:", url); }
+  );
+}
+function exportConfirmLinks(){
+  let nuevos=0;
+  S.guests.forEach(g=>{ if(g.name && g.name.trim() && !g.token){ ensureToken(g); nuevos++; } });
+  if(nuevos) save();
+  const rows=[["Nombre","Grupo","Personas","Acompañantes","Enlace"]];
+  S.guests.filter(g=>g.name && g.name.trim()).forEach(g=>{
+    const acomp=Math.max((+g.count||1)-1,0);
+    rows.push([g.name, g.group||"", g.count||1, acomp, confirmLink(g)]);
+  });
+  const csv=rows.map(r=>r.map(c=>{ const s=String(c==null?"":c); return /[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,"");
+  a.href=URL.createObjectURL(blob); a.download=`enlaces-confirmacion-${tag}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); toast(nuevos?`${nuevos} enlaces nuevos generados ✓`:"Enlaces exportados ✓");
+}
 function printGuests(){
   const s=S.settings;
   const total=S.guests.reduce((a,g)=>a+(+g.count||0),0);
@@ -952,6 +1025,26 @@ function renderGuests(){
   const tb=document.querySelector("#guestTbl tbody");
   tb.innerHTML=list.length?list.map(x=>{
     const cls=x.rsvp==="si"?"rsvp-si":x.rsvp==="no"?"rsvp-no":"rsvp-pend";
+    const c=CONF[x.id];
+    let wc="";
+    if(c){
+      const names=Array.isArray(c.acompanantes)?c.acompanantes.filter(n=>n&&String(n).trim()):[];
+      const when=c.confirmado_at?new Date(c.confirmado_at).toLocaleString("es-MX",{dateStyle:"medium",timeStyle:"short"}):"";
+      const tip=esc((c.mensaje?("“"+c.mensaje+"”  "):"")+(when?("· "+when):""));
+      const N=Number(c.pases)||(+x.count||1);
+      if(c.asiste){
+        const K=N<=1?1:names.length;
+        if(N<=1){
+          wc=`<div class="webconf" title="${tip}"><span class="wc-si">🌐 Confirmó vía web</span></div>`;
+        } else {
+          wc=`<div class="webconf" title="${tip}"><span class="wc-si">🌐 Confirmaron ${K} de ${N}</span>`
+            +(names.length?` <span class="wc-names">${esc(names.join(", "))}</span>`:``)
+            +`</div>`;
+        }
+      } else {
+        wc=`<div class="webconf" title="${tip}"><span class="wc-no">🌐 No ${N>1?'asistirán':'asistirá'}</span></div>`;
+      }
+    }
     return `<tr>
       <td><input value="${esc(x.name)}" placeholder="Nombre y apellido" onchange="upd('guests','${x.id}','name',this.value)"></td>
       <td><input value="${esc(x.group)}" placeholder="Familia novia / amigos…" onchange="upd('guests','${x.id}','group',this.value)"></td>
@@ -959,10 +1052,12 @@ function renderGuests(){
       <td><select class="pill ${cls}" onchange="upd('guests','${x.id}','rsvp',this.value);renderGuests()">
         <option value="pend" ${x.rsvp==="pend"?"selected":""}>Pendiente</option>
         <option value="si" ${x.rsvp==="si"?"selected":""}>Confirmado</option>
-        <option value="no" ${x.rsvp==="no"?"selected":""}>No asiste</option></select></td>
+        <option value="no" ${x.rsvp==="no"?"selected":""}>No asiste</option></select>${wc}</td>
       <td><input value="${esc(tableName(x.table)||x.table)}" placeholder="—" readonly title="Asigna desde la pestaña Mesas" style="color:var(--muted)"></td>
       <td><input value="${esc(x.contact)}" placeholder="Tel / correo" onchange="upd('guests','${x.id}','contact',this.value)"></td>
-      <td><button class="icon" title="Eliminar" onclick="del('guests','${x.id}');renderGuests()">🗑</button></td></tr>`;}).join(""):`<tr><td colspan="7"><div class="empty">${S.guests.length?"Ningún invitado coincide con el filtro.":"Aún no hay invitados. Agrega el primero."}</div></td></tr>`;
+      <td style="white-space:nowrap">
+        <button class="icon" title="Copiar enlace de confirmación" onclick="copyConfirmLink('${x.id}')">🔗</button>
+        <button class="icon" title="Eliminar" onclick="del('guests','${x.id}');renderGuests()">🗑</button></td></tr>`;}).join(""):`<tr><td colspan="7"><div class="empty">${S.guests.length?"Ningún invitado coincide con el filtro.":"Aún no hay invitados. Agrega el primero."}</div></td></tr>`;
 
   const lbl=document.getElementById("guestCountLbl");
   if(lbl) lbl.textContent=`Mostrando ${list.length} de ${S.guests.length}`;
