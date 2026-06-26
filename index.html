@@ -450,7 +450,7 @@
       </div>
       <div class="scroll">
         <table class="tbl" id="participantTbl">
-          <thead><tr><th style="width:22%">Rol</th><th>Nombre</th><th>Encargado de</th><th>Contacto</th><th></th></tr></thead>
+          <thead><tr><th style="width:22%">Rol</th><th>Nombre</th><th>Encargado de</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -1149,8 +1149,7 @@ function renderParticipants(){
     <td><input value="${esc(x.role)}" placeholder="Ej. Padrino, Pastor, Música" onchange="upd('participants','${x.id}','role',this.value)"></td>
     <td><input value="${esc(x.name)}" placeholder="Nombre" onchange="upd('participants','${x.id}','name',this.value)"></td>
     <td><input value="${esc(x.task)}" placeholder="Ej. Anillos, Guitarra…" onchange="upd('participants','${x.id}','task',this.value)"></td>
-    <td><input value="${esc(x.contact)}" placeholder="Tel / correo" onchange="upd('participants','${x.id}','contact',this.value)"></td>
-    <td><button class="icon" title="Eliminar" onclick="del('participants','${x.id}');renderParticipants()">🗑</button></td></tr>`).join(""):`<tr><td colspan="5"><div class="empty">Sin participantes aún. Agrega padrinos, ministros, músicos…</div></td></tr>`;
+    <td><button class="icon" title="Eliminar" onclick="del('participants','${x.id}');renderParticipants()">🗑</button></td></tr>`).join(""):`<tr><td colspan="4"><div class="empty">Sin participantes aún. Agrega padrinos, ministros, músicos…</div></td></tr>`;
 }
 
 /* ---------- Proveedores ---------- */
