@@ -1083,7 +1083,7 @@ function taskRow(t, showPhase){
     ${showPhase?`<span class="badge" style="font-size:10.5px;background:var(--sage-light);color:var(--sage);border-radius:20px;padding:2px 8px">${esc(t.phase)}</span>`:""}
     <select class="who-sel who-${w}" title="Responsable" onchange="upd('tasks','${t.id}','who',this.value);renderTasks()">
       ${WHO_OPTS.map(([v,l])=>`<option value="${v}" ${w===v?"selected":""}>${l}</option>`).join("")}</select>
-    <input type="date" value="${t.due||""}" title="Fecha límite (define la etapa)" onchange="setTaskDate('${t.id}',this.value)">
+    <input type="date" value="${t.due||""}" title="Fecha límite (define la etapa)" onblur="setTaskDate('${t.id}',this.value)" onchange="setTaskDate('${t.id}',this.value,true)">
     <button class="icon" title="Eliminar" onclick="del('tasks','${t.id}');renderTasks()">🗑</button></div>`;
 }
 function renderTasks(){
@@ -1131,12 +1131,13 @@ function phaseFromDate(due){
   if(d<365) return "9–12 meses antes";
   return "12+ meses antes";
 }
-function setTaskDate(id,val){
+function setTaskDate(id,val,skipRender){
   const t=S.tasks.find(x=>x.id===id); if(!t) return;
   t.due=val;
   const ph=phaseFromDate(val);
   if(ph) t.phase=ph;
-  save(); renderTasks();
+  save();
+  if(!skipRender) renderTasks();
 }
 
 /* ---------- Participantes ---------- */
