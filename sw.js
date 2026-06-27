@@ -1,5 +1,5 @@
 /* Service Worker de Nupcia — caché ligera para que abra offline */
-const CACHE = "nupcia-v23";
+const CACHE = "nupcia-v24";
 const SHELL = ["./", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", e => {

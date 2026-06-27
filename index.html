@@ -714,6 +714,24 @@ const SHORTMESA={
   "Banda":"Banda", "Politica":"Politica"
 };
 function tableLabel(group){ return SHORTMESA[group] || group || "Mesa"; }
+// Formatea un nombre escrito en mayúsculas a "Nombre Apellido", con acentos comunes
+const ACENTOS={garcia:"García",rodriguez:"Rodríguez",juarez:"Juárez",hernandez:"Hernández",lopez:"López",perez:"Pérez",vazquez:"Vázquez",vasquez:"Vásquez",gomez:"Gómez",martinez:"Martínez",gonzalez:"González",sanchez:"Sánchez",ramirez:"Ramírez",jimenez:"Jiménez",gutierrez:"Gutiérrez",alvarez:"Álvarez",diaz:"Díaz",fernandez:"Fernández",dominguez:"Domínguez",marquez:"Márquez",benitez:"Benítez",velazquez:"Velázquez",cardenas:"Cárdenas",mendez:"Méndez",cordova:"Córdova",farias:"Farías",aviles:"Avilés",negron:"Negrón",jose:"José",angel:"Ángel",andres:"Andrés",ines:"Inés",millan:"Millán",hector:"Héctor",ramon:"Ramón",adrian:"Adrián",ruben:"Rubén",ivan:"Iván",noe:"Noé",cesar:"César",martin:"Martín",monica:"Mónica",veronica:"Verónica",maria:"María"};
+const MINUS=new Set(["y","de","del","la","las","los","e"]);
+function normalizeName(raw){
+  if(!raw) return raw;
+  const t=String(raw).trim().replace(/\s+/g," ");
+  if(!t) return t;
+  // si ya trae minúsculas (lo escribieron en formato normal), respétalo
+  if(/[a-záéíóúñ]/.test(t)) return t;
+  return t.split(" ").map((w,i)=>{
+    const lw=w.toLowerCase();
+    if(i>0 && MINUS.has(lw)) return lw;
+    const base=lw.replace(/[.,]/g,"");
+    if(ACENTOS[base]) return ACENTOS[base];
+    if(/^[a-záéíóúñ]\.$/i.test(w)) return w.toUpperCase();
+    return lw.charAt(0).toUpperCase()+lw.slice(1);
+  }).join(" ");
+}
 function freeSeatsP(tid){
   const t=(S.tables||[]).find(x=>x.id===tid); if(!t) return 0;
   const used=(S.people||[]).filter(p=>p.table===tid).length;   // cada persona = 1 lugar
@@ -749,7 +767,7 @@ function applyConfirmation(c){
   S.people=S.people||[];
   let changed=false;
   if(c.asiste){
-    const names=Array.isArray(c.acompanantes)?c.acompanantes.map(n=>String(n||"").trim()).filter(Boolean):[];
+    const names=Array.isArray(c.acompanantes)?c.acompanantes.map(n=>normalizeName(String(n||"").trim())).filter(Boolean):[];
     const attendees = names.length ? names : [inv.name];   // 1 pase sin nombres → la persona invitada
     const keep=new Set(attendees);
     // quita personas de esta invitación que ya no asisten (si editaron su RSVP)
