@@ -688,8 +688,7 @@ function subscribeConfirmaciones(){
     .on("postgres_changes",{event:"*",schema:"public",table:"confirmaciones"}, payload=>{
       const r=payload.new; if(!r||!r.guest_id) return;
       CONF[r.guest_id]=r;
-      const changed=applyConfirmation(r);
-      if(changed) save();
+      if(ready){ const changed=applyConfirmation(r); if(changed) save(); }  // sólo tras cargar datos reales
       if(!isEditing()){ if(typeof renderAll==="function") renderAll(); }
       toast("Nueva confirmación: "+(r.nombre||"invitado"));
     })
@@ -777,6 +776,7 @@ function applyConfirmation(c){
   return changed;
 }
 function applyAllConfirmations(){
+  if(!ready) return false;   // NUNCA aplicar sobre el caché local antes de cargar los datos reales
   let changed=false;
   Object.keys(CONF).forEach(k=>{ if(applyConfirmation(CONF[k])) changed=true; });
   if(changed) save();
