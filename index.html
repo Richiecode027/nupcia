@@ -1140,8 +1140,9 @@ function renderGuests(){
     const seated=(S.people||[]).filter(p=>p.invId===x.id);
     const seatedTbls=[...new Set(seated.map(p=>tableName(p.table)).filter(Boolean))];
     const mesaTxt=seatedTbls.length?seatedTbls.join(", "):"";
+    const seatedNames=seated.length?`<div style="font-size:11.5px;color:var(--ok);margin-top:3px;line-height:1.4">👤 ${esc(seated.map(p=>p.name).join(", "))} <i style="color:var(--muted);font-style:normal">(${seated.length})</i></div>`:"";
     return `<tr>
-      <td><input value="${esc(x.name)}" placeholder="Nombre y apellido" onchange="upd('guests','${x.id}','name',this.value)"></td>
+      <td><input value="${esc(x.name)}" placeholder="Nombre y apellido" onchange="upd('guests','${x.id}','name',this.value)">${seatedNames}</td>
       <td><input value="${esc(x.group)}" placeholder="Familia novia / amigos…" onchange="upd('guests','${x.id}','group',this.value)"></td>
       <td><input type="number" min="0" value="${x.count}" onchange="upd('guests','${x.id}','count',this.value);renderGuests()"></td>
       <td><select class="pill ${cls}" onchange="upd('guests','${x.id}','rsvp',this.value);renderGuests()">
