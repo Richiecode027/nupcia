@@ -792,13 +792,12 @@ function applyConfirmation(c){
     const fresh=attendees.map(nm=>S.people.find(x=>x.invId===inv.id && x.name===nm)).filter(p=>p && !p.table);
     if(fresh.length){ seatTogether(fresh, inv.group); changed=true; }
     if(inv.rsvp!=="si"){ inv.rsvp="si"; changed=true; }
-    if((+inv.count||0)!==attendees.length){ inv.count=attendees.length; changed=true; }
+    // No pisamos inv.count (total de pases asignados) para no romper rsvp_lookup
   } else {
     const before=S.people.length;
     S.people=S.people.filter(p=>p.invId!==inv.id);
     if(S.people.length!==before) changed=true;
     if(inv.rsvp!=="no"){ inv.rsvp="no"; changed=true; }
-    if((+inv.count||0)!==0){ inv.count=0; changed=true; }
   }
   return changed;
 }
