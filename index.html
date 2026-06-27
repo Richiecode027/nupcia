@@ -201,6 +201,15 @@
   .tl-row input.tl-act{flex:1; border:1px solid transparent; background:transparent; font-family:inherit; font-size:14.5px; padding:7px 9px; border-radius:8px; color:var(--ink)}
   .tl-row input:focus{outline:none; border-color:var(--sage); background:#fff}
 
+  /* Modal mensaje */
+  .msg-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:24px}
+  .msg-overlay[hidden]{display:none}
+  .msg-card{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:28px 24px;max-width:380px;width:100%}
+  .msg-card h3{margin:0 0 6px;font-size:15px;color:var(--text)}
+  .msg-card .msg-quien{font-size:12px;color:var(--muted);margin-bottom:16px}
+  .msg-card .msg-body{font-size:15px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;background:var(--blush);border-radius:10px;padding:14px 16px}
+  .msg-card .msg-close{margin-top:18px;width:100%;padding:10px;border:none;border-radius:8px;background:var(--gold-deep);color:#fff;font-size:14px;cursor:pointer}
+
   /* PIN gate */
   .pin-overlay{position:fixed; inset:0; z-index:300; background:linear-gradient(135deg,var(--blush),var(--blush-deep));
     display:flex; align-items:center; justify-content:center; padding:24px}
@@ -613,7 +622,7 @@ const URL_ = "https://pbjthkfiuapwnmwhlrxp.supabase.co";
 const KEY_ = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBianRoa2ZpdWFwd25td2hscnhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDgzMzQsImV4cCI6MjA5NzE4NDMzNH0.do3K1RXfmCqi3WwqFTOBfdDdhGL-6mn6ZFqktgN3PuA";
 const SPACE = "nupcia-principal";
 // Base de la invitación web (para los enlaces de confirmación personalizados)
-const INVITE_BASE = "https://julissa-y-ricardo-3oct2026.netlify.app/";
+const INVITE_BASE = "https://julissa-y-ricardo.com/";
 let CONF = {};            // confirmaciones recibidas vía la invitación: { guest_id: {asiste, acompanantes, mensaje, confirmado_at} }
 let confChannel = null;
 let SB=null, channel=null, DEVICE=uid()+uid(),
@@ -1169,6 +1178,7 @@ function renderGuests(){
         <option value="no" ${x.rsvp==="no"?"selected":""}>No asiste</option></select>${wc}</td>
       <td><input value="${esc(mesaTxt)}" placeholder="—" readonly title="Mesa(s) donde se sentó esta invitación (automático al confirmar)" style="color:var(--muted)"></td>
       <td style="white-space:nowrap">
+        ${c&&c.mensaje?`<button class="icon" title="Ver mensaje" onclick="showMensaje('${x.id}')">💬</button>`:''}
         <button class="icon" title="Copiar enlace de confirmación" onclick="copyConfirmLink('${x.id}')">🔗</button>
         <button class="icon" title="Eliminar" onclick="del('guests','${x.id}');renderGuests()">🗑</button></td></tr>`;}).join(""):`<tr><td colspan="6"><div class="empty">${S.guests.length?"Ningún invitado coincide con el filtro.":"Aún no hay invitados. Agrega el primero."}</div></td></tr>`;
 
@@ -1512,7 +1522,28 @@ window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizad
 /* ---------- PWA: service worker ---------- */
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
 
+function showMensaje(guestId){
+  const g=S.guests.find(x=>x.id===guestId);
+  const c=CONF[guestId];
+  if(!c||!c.mensaje) return;
+  document.getElementById('msgQuien').textContent=g?g.name:'';
+  document.getElementById('msgBody').textContent=c.mensaje;
+  document.getElementById('msgOverlay').removeAttribute('hidden');
+}
+function closeMensaje(){
+  document.getElementById('msgOverlay').setAttribute('hidden','');
+}
+
 startApp();
 </script>
+<!-- Modal mensaje invitado -->
+<div class="msg-overlay" id="msgOverlay" hidden onclick="if(event.target===this)closeMensaje()">
+  <div class="msg-card">
+    <h3>Mensaje para los novios</h3>
+    <div class="msg-quien" id="msgQuien"></div>
+    <div class="msg-body" id="msgBody"></div>
+    <button class="msg-close" onclick="closeMensaje()">Cerrar</button>
+  </div>
+</div>
 </body>
 </html>
