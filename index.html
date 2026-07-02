@@ -385,6 +385,7 @@
           <button class="btn primary" onclick="addGuest()">+ Agregar invitado</button>
         </div>
       </div>
+      <div id="rsvpDeadline"></div>
       <div class="cards" id="guestStats" style="margin-bottom:14px"></div>
       <div class="filters">
         <input class="search" id="guestSearch" placeholder="🔍 Buscar por nombre…" oninput="renderGuests()">
@@ -394,6 +395,11 @@
           <option value="pend">Pendientes</option>
           <option value="si">Confirmados</option>
           <option value="no">No asisten</option>
+        </select>
+        <select id="guestSentFilter" onchange="renderGuests()">
+          <option value="">Todo envío</option>
+          <option value="no">Sin enviar</option>
+          <option value="si">Enviadas</option>
         </select>
         <span class="count-lbl" id="guestCountLbl"></span>
       </div>
@@ -405,6 +411,12 @@
           <tbody></tbody>
         </table>
       </div>
+    </section>
+
+    <section class="block" id="msgsSection" style="display:none">
+      <div class="sec-head"><div><h2>💌 Mensajes de los invitados</h2>
+        <div class="desc">Los buenos deseos que escribieron al confirmar</div></div></div>
+      <div id="msgsList"></div>
     </section>
   </div>
 
@@ -505,6 +517,16 @@
     </section>
 
     <section class="block">
+      <div class="sec-head"><div><h2>🔒 Clave de sincronización</h2>
+        <div class="desc">Protege la escritura: sin esta clave nadie puede modificar los datos de la boda, aunque conozca la base de datos.</div></div></div>
+      <div class="share-link">
+        <input id="wkeyInput" type="password" placeholder="Pega aquí la clave secreta" autocomplete="off">
+        <button class="btn primary" onclick="setWriteKey(document.getElementById('wkeyInput').value); toast(writeKey()?'Clave guardada ✓':'Clave borrada')">Guardar clave</button>
+      </div>
+      <p class="muted" id="wkeyStatus" style="font-size:12.5px; margin-top:10px"></p>
+    </section>
+
+    <section class="block">
       <div class="sec-head"><div><h2>Datos de la boda</h2><div class="desc">Personaliza el encabezado y la cuenta regresiva</div></div></div>
       <div class="grid2">
         <div class="field"><label>Nombre 1</label><input id="sName1" placeholder="Ej. Ana"></div>
@@ -519,9 +541,15 @@
     </section>
 
     <section class="block">
-      <div class="sec-head"><div><h2>Respaldo</h2><div class="desc">Descarga una copia local de todos los datos</div></div></div>
+      <div class="sec-head"><div><h2>Respaldo</h2><div class="desc">Descarga una copia de todos los datos, o restaura una anterior</div></div></div>
       <div class="toolbar">
         <button class="btn" onclick="exportData()">⬇ Descargar respaldo (.json)</button>
+        <button class="btn" onclick="document.getElementById('importFile').click()">⬆ Restaurar respaldo (.json)</button>
+        <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importData(this)">
+      </div>
+      <div style="margin-top:18px">
+        <div class="desc" style="color:var(--muted); font-size:13px; margin-bottom:6px">🕐 Copias automáticas en este dispositivo (una cada 30 min, se guardan las últimas 5)</div>
+        <div id="snapshotList"></div>
       </div>
     </section>
   </div>
@@ -627,6 +655,23 @@ let CONF = {};            // confirmaciones recibidas vía la invitación: { gue
 let confChannel = null;
 let SB=null, channel=null, DEVICE=uid()+uid(),
     applyingRemote=false, saveT=null, pendingRemote=null, ready=false, hasLocalEdits=false;
+
+/* ---------- Clave de sincronización (escritura protegida) ----------
+   La escritura en `espacios` exige una clave secreta (función guardar_espacio
+   en Supabase). La clave vive SOLO en este dispositivo (localStorage) y viaja
+   en el enlace para la pareja (#clave=...), nunca en el repo. */
+const WKEY_STORE="nupcia_write_key";
+function writeKey(){ try{ return localStorage.getItem(WKEY_STORE)||""; }catch(e){ return ""; } }
+function setWriteKey(v){
+  try{ if(v) localStorage.setItem(WKEY_STORE, v.trim()); else localStorage.removeItem(WKEY_STORE); }catch(e){}
+  renderSyncKey();
+}
+// si llega la clave en el enlace (#clave=...), guardarla y limpiar la URL
+(function(){
+  const m=location.hash.match(/[#&]clave=([^&]+)/);
+  if(m){ try{ localStorage.setItem(WKEY_STORE, decodeURIComponent(m[1])); }catch(e){}
+    history.replaceState(null,"",location.pathname+location.search); }
+})();
 
 function setStatus(state, text){
   const el=document.getElementById("status");
@@ -832,11 +877,44 @@ function guestTotals(){
   return t;
 }
 
+/* ---------- Snapshots locales (red de seguridad) ----------
+   Guarda hasta 5 copias del estado en este dispositivo, máx. una cada 30 min.
+   Si algo sale mal (sobrescritura, error de sincronización), se restauran
+   desde Ajustes. */
+const SNAP_KEY="nupcia_snapshots", SNAP_MAX=5, SNAP_MIN_MS=30*60*1000;
+function getSnapshots(){ try{ return JSON.parse(localStorage.getItem(SNAP_KEY))||[]; }catch(e){ return []; } }
+function maybeSnapshot(force){
+  try{
+    const snaps=getSnapshots();
+    if(!force && snaps.length && Date.now()-snaps[0].ts < SNAP_MIN_MS) return;
+    if(!(S.guests||[]).length && !(S.budget||[]).length) return;   // no guardar estados vacíos
+    snaps.unshift({ts:Date.now(), data:clean(S)});
+    while(snaps.length>SNAP_MAX) snaps.pop();
+    localStorage.setItem(SNAP_KEY, JSON.stringify(snaps));
+    renderSnapshots();
+  }catch(e){ /* localStorage lleno: mejor seguir sin snapshot que fallar */ }
+}
+function restoreSnapshot(idx){
+  const snaps=getSnapshots(); const s=snaps[idx]; if(!s) return;
+  const d=new Date(s.ts).toLocaleString("es-MX",{dateStyle:"medium",timeStyle:"short"});
+  if(!confirm("Se restaurará la copia del "+d+" y se reemplazarán los datos actuales (también en la nube).\n\n¿Continuar?")) return;
+  applyRestoredData(s.data, "Copia del "+d+" restaurada ✓");
+}
+// Camino común de restauración (snapshots y respaldo .json importado)
+function applyRestoredData(raw, msg){
+  maybeSnapshot(true);   // respaldar el estado actual antes de pisarlo
+  migrateIfNeeded(raw); normalizePhases(raw); migrateBudget(raw);
+  S=Object.assign(defaults(), raw);
+  save(true); renderAll();
+  toast(msg||"Datos restaurados ✓");
+}
+
 function isEditing(){
   const a=document.activeElement;
   return a && (a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT") && a.closest(".wrap");
 }
 function onRemote(data){
+  maybeSnapshot();   // copia del estado actual antes de reemplazarlo
   applyingRemote=true;
   S=Object.assign(defaults(), data);
   renderAll();
@@ -855,18 +933,29 @@ function save(immediate){
   hasLocalEdits=true;
   S._ts=Date.now(); S._by=DEVICE;
   try{ localStorage.setItem(CACHE_KEY, JSON.stringify(S)); }catch(e){}
+  maybeSnapshot();
   if(!SB) return;
   clearTimeout(saveT);
   const doWrite=()=>{
-    SB.from("espacios").upsert({id:SPACE, data:clean(S), updated_at:new Date().toISOString()})
-      .then(({error})=>{ if(error){ setStatus("error","Error al guardar"); console.error(error); } });
+    const k=writeKey();
+    if(!k){ setStatus("error","Falta la clave de sincronización (Ajustes)"); return; }
+    SB.rpc("guardar_espacio",{p_id:SPACE, p_data:clean(S), p_secret:k})
+      .then(({data,error})=>{
+        if(error){ setStatus("error","Error al guardar"); console.error(error); return; }
+        if(data && data.ok===false){
+          setStatus("error", data.error==="clave_invalida" ? "Clave de sincronización incorrecta (Ajustes)" : "Error al guardar");
+          return;
+        }
+        if(ready) setStatus("online","Sincronizado en tiempo real");
+      });
   };
   if(immediate) doWrite(); else saveT=setTimeout(doWrite, 350);
 }
 
 /* ---------- Enlace para compartir ---------- */
 function shareUrl(){
-  return location.origin+location.pathname;
+  const k=writeKey();
+  return location.origin+location.pathname+(k?("#clave="+encodeURIComponent(k)):"");
 }
 function copyShare(){
   const url=shareUrl();
@@ -1080,6 +1169,29 @@ function copyConfirmLink(id){
     ()=>{ prompt("Copia el enlace:", url); }
   );
 }
+// Fecha límite de confirmación (la misma que dice la invitación web)
+const RSVP_DEADLINE="2026-08-31";
+function sendWhatsapp(id){
+  const g=S.guests.find(x=>x.id===id); if(!g) return;
+  if(!g.name || !g.name.trim()){ toast("Ponle nombre al invitado primero"); return; }
+  const s=S.settings;
+  const novios=(s.name1&&s.name2)?(s.name1+" y "+s.name2):"los novios";
+  const fecha=s.date?new Date(s.date+"T00:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):"";
+  const pases=+g.count||1;
+  const url=confirmLink(g);
+  const txt=`¡Hola! 💍 Somos *${novios}* y ¡nos casamos!`+
+    (fecha?`\nNos encantaría contar con ustedes el *${fecha}*.`:"")+
+    `\nEsta es la invitación para *${g.name}*`+(pases>1?` (${pases} pases)`:"")+`:\n${url}`+
+    `\nPor favor confirmar antes del *31 de agosto* 🙏`;
+  if(!g.sent){ g.sent=true; g.sentAt=Date.now(); }
+  save(); renderGuests();
+  window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");
+}
+function toggleSent(id){
+  const g=S.guests.find(x=>x.id===id); if(!g) return;
+  g.sent=!g.sent; g.sentAt=g.sent?Date.now():null;
+  save(); renderGuests();
+}
 function exportConfirmLinks(){
   let nuevos=0;
   S.guests.forEach(g=>{ if(g.name && g.name.trim() && !g.token){ ensureToken(g); nuevos++; } });
@@ -1154,10 +1266,13 @@ function renderGuests(){
   const search=(document.getElementById("guestSearch")?.value||"").toLowerCase().trim();
   const gf=gsel?gsel.value:"";
   const rf=document.getElementById("guestRsvpFilter")?.value||"";
+  const sf=document.getElementById("guestSentFilter")?.value||"";
   const list=S.guests.filter(g=>{
     if(search && !(g.name||"").toLowerCase().includes(search)) return false;
     if(gf && g.group!==gf) return false;
     if(rf && (g.rsvp||"pend")!==rf) return false;
+    if(sf==="si" && !g.sent) return false;
+    if(sf==="no" && g.sent) return false;
     return true;
   });
 
@@ -1199,6 +1314,8 @@ function renderGuests(){
       <td><input value="${esc(mesaTxt)}" placeholder="—" readonly title="Mesa(s) donde se sentó esta invitación (automático al confirmar)" style="color:var(--muted)"></td>
       <td style="white-space:nowrap">
         ${c&&c.mensaje?`<button class="icon" title="Ver mensaje" onclick="showMensaje('${x.id}')">💬</button>`:''}
+        <button class="icon" title="Enviar invitación por WhatsApp" onclick="sendWhatsapp('${x.id}')">📱</button>
+        <button class="icon" title="${x.sent?("Enlace enviado"+(x.sentAt?" el "+new Date(x.sentAt).toLocaleDateString("es-MX",{day:"numeric",month:"short"}):"")+" — clic para desmarcar"):"Marcar enlace como enviado"}" style="${x.sent?"color:var(--ok)":"opacity:.45"}" onclick="toggleSent('${x.id}')">${x.sent?"✅":"✉️"}</button>
         <button class="icon" title="Copiar enlace de confirmación" onclick="copyConfirmLink('${x.id}')">🔗</button>
         <button class="icon" title="Eliminar" onclick="del('guests','${x.id}');renderGuests()">🗑</button></td></tr>`;}).join(""):`<tr><td colspan="6"><div class="empty">${S.guests.length?"Ningún invitado coincide con el filtro.":"Aún no hay invitados. Agrega el primero."}</div></td></tr>`;
 
@@ -1206,11 +1323,49 @@ function renderGuests(){
   if(lbl) lbl.textContent=`Mostrando ${list.length} de ${S.guests.length}`;
 
   const gt=guestTotals(), people=gt.total, si=gt.si, no=gt.no, pend=gt.pend;
+  const sent=S.guests.filter(g=>g.sent).length;
   document.getElementById("guestStats").innerHTML=`
     <div class="stat"><div class="k">Total invitados</div><div class="v">${people}</div></div>
     <div class="stat"><div class="k">Confirmados</div><div class="v" style="color:var(--ok)">${si}</div></div>
     <div class="stat"><div class="k">Pendientes</div><div class="v" style="color:var(--gold-deep)">${pend}</div></div>
-    <div class="stat"><div class="k">No asisten</div><div class="v" style="color:var(--danger)">${no}</div></div>`;
+    <div class="stat"><div class="k">No asisten</div><div class="v" style="color:var(--danger)">${no}</div></div>
+    <div class="stat"><div class="k">Enlaces enviados</div><div class="v">${sent}<span class="muted" style="font-size:16px">/${S.guests.length}</span></div></div>`;
+  renderRsvpDeadline();
+  renderMensajes();
+}
+// Aviso pequeño con los días que faltan para el cierre de confirmaciones
+function renderRsvpDeadline(){
+  const el=document.getElementById("rsvpDeadline"); if(!el) return;
+  const dias=Math.ceil((new Date(RSVP_DEADLINE+"T23:59:59")-Date.now())/86400000);
+  const sinResp=S.guests.filter(g=>(g.rsvp||"pend")==="pend").length;
+  const fecha=new Date(RSVP_DEADLINE+"T00:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long"});
+  let txt, color;
+  if(dias>0){
+    txt=`⏰ Quedan <b>${dias} día${dias===1?"":"s"}</b> para el cierre de confirmaciones (${fecha})`+(sinResp?` · <b>${sinResp}</b> familia${sinResp===1?"":"s"} sin responder`:" · ¡todas las familias respondieron! 🎉");
+    color=dias<=14?"var(--danger)":"var(--gold-deep)";
+  } else {
+    txt=`⏰ El plazo de confirmación cerró el ${fecha}`+(sinResp?` · <b>${sinResp}</b> familia${sinResp===1?"":"s"} nunca respondió`:"");
+    color="var(--muted)";
+  }
+  el.innerHTML=`<div style="font-size:13px; color:${color}; margin-bottom:12px">${txt}</div>`;
+}
+// Sección con todos los mensajes que dejaron al confirmar
+function renderMensajes(){
+  const sec=document.getElementById("msgsSection"), list=document.getElementById("msgsList");
+  if(!sec||!list) return;
+  const msgs=Object.values(CONF).filter(c=>c && c.mensaje && String(c.mensaje).trim())
+    .sort((a,b)=>new Date(b.confirmado_at||0)-new Date(a.confirmado_at||0));
+  if(!msgs.length){ sec.style.display="none"; return; }
+  sec.style.display="";
+  list.innerHTML=msgs.map(c=>{
+    const g=S.guests.find(x=>x.id===c.guest_id);
+    const quien=g?g.name:(c.nombre||"Invitado");
+    const when=c.confirmado_at?new Date(c.confirmado_at).toLocaleDateString("es-MX",{day:"numeric",month:"long"}):"";
+    return `<div style="border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-top:10px; background:#fff">
+      <div style="font-size:14.5px; line-height:1.55; white-space:pre-wrap">“${esc(c.mensaje)}”</div>
+      <div style="font-size:12px; color:var(--muted); margin-top:6px">— ${esc(quien)}${when?" · "+when:""}</div>
+    </div>`;
+  }).join("");
 }
 
 /* ---------- Tareas ---------- */
@@ -1532,9 +1687,42 @@ notesEl.addEventListener("input",()=>{ S.notes=notesEl.value; clearTimeout(notes
 function fillSettings(){ const s=S.settings; sName1.value=s.name1||""; sName2.value=s.name2||""; sDate.value=s.date||""; sPlace.value=s.place||""; sBudget.value=s.budget||""; sPin.value=s.pin||""; }
 function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.value.trim(),date:sDate.value,place:sPlace.value.trim(),budget:+sBudget.value||0,pin:sPin.value.trim()}; if(S.settings.pin) sessionStorage.setItem("nupcia_unlocked","1"); save(); renderHeader(); renderDash(); renderBudget(); toast("Datos guardados ✓"); }
 function exportData(){ const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}); const a=document.createElement("a"); const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,""); a.href=URL.createObjectURL(blob); a.download=`nupcia-${tag}-${new Date().toISOString().slice(0,10)}.json`; a.click(); toast("Respaldo descargado ✓"); }
+function importData(input){
+  const f=input.files && input.files[0]; input.value="";
+  if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    let raw;
+    try{ raw=JSON.parse(rd.result); }catch(e){ alert("El archivo no es un respaldo válido (JSON dañado)."); return; }
+    if(!raw || typeof raw.settings!=="object" || !Array.isArray(raw.guests) || !Array.isArray(raw.tasks)){
+      alert("El archivo no parece un respaldo de Nupcia (faltan datos)."); return;
+    }
+    const resumen=`${(raw.guests||[]).length} invitaciones · ${(raw.people||[]).length} personas sentadas · ${(raw.tasks||[]).length} tareas · ${(raw.budget||[]).length} gastos`;
+    if(!confirm("Se restaurará este respaldo y se reemplazarán los datos actuales (también en la nube):\n\n"+resumen+"\n\n¿Continuar?")) return;
+    applyRestoredData(raw, "Respaldo restaurado ✓");
+  };
+  rd.readAsText(f);
+}
+function renderSnapshots(){
+  const el=document.getElementById("snapshotList"); if(!el) return;
+  const snaps=getSnapshots();
+  el.innerHTML = snaps.length ? snaps.map((s,i)=>{
+    const d=new Date(s.ts).toLocaleString("es-MX",{dateStyle:"medium",timeStyle:"short"});
+    const g=(s.data.guests||[]).length, p=(s.data.people||[]).length, t=(s.data.tasks||[]).length;
+    return `<div class="task" style="justify-content:space-between">
+      <span style="font-size:13.5px">${d} <span class="muted" style="font-size:12px">· ${g} invitaciones · ${p} sentados · ${t} tareas</span></span>
+      <button class="btn" style="font-size:12.5px; padding:5px 12px" onclick="restoreSnapshot(${i})">Restaurar</button></div>`;
+  }).join("") : '<div class="empty" style="padding:12px">Aún no hay copias automáticas.</div>';
+}
+function renderSyncKey(){
+  const st=document.getElementById("wkeyStatus"); if(!st) return;
+  st.innerHTML = writeKey()
+    ? '✅ Clave guardada en este dispositivo. El enlace de «Conectar a mi pareja» la incluye automáticamente.'
+    : '⚠ <b>Sin clave:</b> los cambios no se guardarán en la nube. Pega la clave secreta (te la pasó quien configuró la boda) y guárdala.';
+}
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; maybePinGate(); }
+function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });

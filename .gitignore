@@ -2,6 +2,9 @@
 nupcia-*.json
 respaldo-*.json
 
+# Candado de escritura: contiene la clave secreta — NO subir
+asegurar_espacios.sql
+
 # Archivos temporales de carga de datos (contienen datos personales — NO subir)
 seed.js
 seed_data.json
@@ -11,6 +14,9 @@ node_modules/
 package-lock.json
 package.json
 _check.js
+
+# Configuración local del asistente
+.claude/
 
 # Sistema
 Thumbs.db
