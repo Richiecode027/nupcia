@@ -991,6 +991,9 @@ let toastT;
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1900); }
 const money=n=>"$"+(Number(n)||0).toLocaleString("es-MX",{maximumFractionDigits:0});
 function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+// Quita acentos para que buscar "Perez" también encuentre "Pérez"
+function foldAccents(s){ return String(s==null?"":s).normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]","g"),""); }
+function searchNorm(s){ return foldAccents(String(s||"").toLowerCase()); }
 
 function switchTab(name){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.tab===name));
@@ -1279,12 +1282,12 @@ function renderGuests(){
   const gsel=document.getElementById("guestGroupFilter");
   if(gsel){ const cur=gsel.value; gsel.innerHTML='<option value="">Todos los grupos</option>'+groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join(""); gsel.value=cur; }
 
-  const search=(document.getElementById("guestSearch")?.value||"").toLowerCase().trim();
+  const search=searchNorm((document.getElementById("guestSearch")?.value||"").trim());
   const gf=gsel?gsel.value:"";
   const rf=document.getElementById("guestRsvpFilter")?.value||"";
   const sf=document.getElementById("guestSentFilter")?.value||"";
   const list=S.guests.filter(g=>{
-    if(search && !(g.name||"").toLowerCase().includes(search)) return false;
+    if(search && !searchNorm(g.name).includes(search)) return false;
     if(gf && g.group!==gf) return false;
     if(rf && (g.rsvp||"pend")!==rf) return false;
     if(sf==="si" && !g.sent) return false;
