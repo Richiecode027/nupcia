@@ -701,7 +701,11 @@ function connectSupabase(){
     }
     if(data && data.data){
       const raw=data.data;
-      if(hasLocalEdits){ save(true); }                 // el usuario ya editó: no sobrescribir, escribir lo local
+      // el caché local (de esta sesión) es más nuevo que lo que hay en la nube:
+      // significa que una edición anterior no llegó a guardarse (p.ej. se cerró
+      // la pestaña antes de que terminara el envío). No la pisamos: la reenviamos.
+      const localNewer = S._ts && raw._ts && S._ts > raw._ts;
+      if(hasLocalEdits || localNewer){ save(true); }
       else { const m1=migrateIfNeeded(raw), m2=normalizePhases(raw), m3=migrateBudget(raw); onRemote(raw); if(m1||m2||m3) save(true); }
     } else pushFull();
     ready=true; setStatus("online","Sincronizado en tiempo real");
@@ -928,6 +932,23 @@ document.addEventListener("focusout", ()=>{
 function clean(o){ return JSON.parse(JSON.stringify(o)); }
 function pushFull(){ save(true); }
 
+// Envía el estado ACTUAL de S a Supabase (siempre lee S al momento de llamarse,
+// nunca una copia vieja) — se usa tanto por el debounce normal como por el
+// flush inmediato al ocultar/cerrar la pestaña.
+function writeToSupabase(){
+  if(!SB) return;
+  const k=writeKey();
+  if(!k){ setStatus("error","Falta la clave de sincronización (Ajustes)"); return; }
+  SB.rpc("guardar_espacio",{p_id:SPACE, p_data:clean(S), p_secret:k})
+    .then(({data,error})=>{
+      if(error){ setStatus("error","Error al guardar"); console.error(error); return; }
+      if(data && data.ok===false){
+        setStatus("error", data.error==="clave_invalida" ? "Clave de sincronización incorrecta (Ajustes)" : "Error al guardar");
+        return;
+      }
+      if(ready) setStatus("online","Sincronizado en tiempo real");
+    });
+}
 function save(immediate){
   if(applyingRemote) return;
   hasLocalEdits=true;
@@ -936,21 +957,16 @@ function save(immediate){
   maybeSnapshot();
   if(!SB) return;
   clearTimeout(saveT);
-  const doWrite=()=>{
-    const k=writeKey();
-    if(!k){ setStatus("error","Falta la clave de sincronización (Ajustes)"); return; }
-    SB.rpc("guardar_espacio",{p_id:SPACE, p_data:clean(S), p_secret:k})
-      .then(({data,error})=>{
-        if(error){ setStatus("error","Error al guardar"); console.error(error); return; }
-        if(data && data.ok===false){
-          setStatus("error", data.error==="clave_invalida" ? "Clave de sincronización incorrecta (Ajustes)" : "Error al guardar");
-          return;
-        }
-        if(ready) setStatus("online","Sincronizado en tiempo real");
-      });
-  };
-  if(immediate) doWrite(); else saveT=setTimeout(doWrite, 350);
+  if(immediate){ saveT=null; writeToSupabase(); }
+  else saveT=setTimeout(()=>{ saveT=null; writeToSupabase(); }, 350);
 }
+// Si el celular se pone en segundo plano o se cierra la pestaña con un guardado
+// pendiente (dentro de los 350ms), lo envía de inmediato para no perderlo.
+function flushPendingSave(){
+  if(saveT){ clearTimeout(saveT); saveT=null; writeToSupabase(); }
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") flushPendingSave(); });
+window.addEventListener("pagehide", flushPendingSave);
 
 /* ---------- Enlace para compartir ---------- */
 function shareUrl(){
