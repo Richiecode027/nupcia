@@ -76,6 +76,8 @@
 
   .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px}
   .stat{background:linear-gradient(160deg,#fff,#fbf7f4); border:1px solid var(--line); border-radius:14px; padding:16px;}
+  .stat.clickable{cursor:pointer; transition:.15s}
+  .stat.clickable:hover{border-color:var(--sage); box-shadow:0 4px 14px rgba(80,60,50,.12); transform:translateY(-1px)}
   .stat .k{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--muted)}
   .stat .v{font-size:28px; font-family:Georgia,serif; font-weight:700; margin-top:4px}
   .stat .v.small{font-size:20px}
@@ -369,6 +371,7 @@
 
     <section class="block">
       <div class="sec-head"><div><h2>Gráficas</h2><div class="desc">Cobertura del presupuesto y gasto por categoría</div></div></div>
+      <div class="tfilter" id="budgetViewBar"></div>
       <div id="budgetChart"></div>
     </section>
   </div>
@@ -1062,10 +1065,10 @@ function renderDash(){
   const doneT=t.filter(x=>x.done).length;
   const pct=t.length?Math.round(doneT/t.length*100):0;
   document.getElementById("dashCards").innerHTML=`
-    <div class="stat"><div class="k">Tareas completadas</div><div class="v">${doneT}<span class="muted" style="font-size:16px">/${t.length}</span></div><div class="bar"><span style="width:${pct}%"></span></div></div>
-    <div class="stat"><div class="k">Presupuesto</div><div class="v small">${money(montoTotal)}</div><div class="meta">Abonado: ${money(abonTotal)}</div></div>
-    <div class="stat"><div class="k">Invitados confirmados</div><div class="v">${confirmed}<span class="muted" style="font-size:16px">/${people}</span></div><div class="meta">${g.length} invitaciones · ${(S.people||[]).length} sentados</div></div>
-    <div class="stat"><div class="k">Participantes</div><div class="v">${(S.participants||[]).length}</div><div class="meta">padrinos, ministros, música…</div></div>`;
+    <div class="stat clickable" onclick="switchTab('tareas')" title="Ver tareas"><div class="k">Tareas completadas</div><div class="v">${doneT}<span class="muted" style="font-size:16px">/${t.length}</span></div><div class="bar"><span style="width:${pct}%"></span></div></div>
+    <div class="stat clickable" onclick="switchTab('presupuesto')" title="Ver presupuesto"><div class="k">Presupuesto</div><div class="v small">${money(montoTotal)}</div><div class="meta">Abonado: ${money(abonTotal)}</div></div>
+    <div class="stat clickable" onclick="goConfirmedGuests()" title="Ver invitados, del más nuevo al más viejo confirmado"><div class="k">Invitados confirmados</div><div class="v">${confirmed}<span class="muted" style="font-size:16px">/${people}</span></div><div class="meta">${g.length} invitaciones · ${(S.people||[]).length} sentados</div></div>
+    <div class="stat clickable" onclick="switchTab('participantes')" title="Ver participantes"><div class="k">Participantes</div><div class="v">${(S.participants||[]).length}</div><div class="meta">padrinos, ministros, música…</div></div>`;
   const next=t.filter(x=>!x.done).slice(0,6);
   const dt=document.getElementById("dashTasks");
   dt.innerHTML=next.length?next.map(x=>{const w=x.who||"ambos"; return `<div class="task"><input type="checkbox" onchange="toggleTask('${x.id}',this.checked)">
@@ -1122,40 +1125,83 @@ function renderBudget(){
   </div>`;
   renderBudgetChart();
 }
+// Vista de la gráfica de cobertura: qué se cuenta como "cubierto"
+const BUDGET_VIEWS=[["todo","Todo (abonado + donado + ahorro)"],["sindonado","Sin lo donado"],["soloabonado","Solo lo abonado en efectivo"]];
+let budgetView="todo";
+function setBudgetView(v){ budgetView=v; renderBudgetChart(); }
 function renderBudgetChart(){
   const el=document.getElementById("budgetChart"); if(!el) return;
-  const monto=S.budget.reduce((a,x)=>a+(+x.monto||0),0);
+  const vb=document.getElementById("budgetViewBar");
+  if(vb) vb.innerHTML=BUDGET_VIEWS.map(([v,l])=>`<button class="${budgetView===v?"active":""}" onclick="setBudgetView('${v}')">${l}</button>`).join("");
+
+  const montoBruto=S.budget.reduce((a,x)=>a+(+x.monto||0),0);
   const abonReal=S.budget.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
   const donado=S.budget.reduce((a,x)=>a+(x.donado?(+x.monto||0):0),0);
   const ahorro=(S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0);
-  const cubierto=abonReal+donado+ahorro;
+  const nDonados=S.budget.filter(x=>x.donado).length;
+
+  // Qué cuenta como "monto" y "cubierto" según la vista elegida
+  let monto, cubierto, verDonado=true, verAhorro=true;
+  if(budgetView==="sindonado"){ monto=montoBruto-donado; cubierto=abonReal+ahorro; verDonado=false; }
+  else if(budgetView==="soloabonado"){ monto=montoBruto; cubierto=abonReal; verDonado=false; verAhorro=false; }
+  else { monto=montoBruto; cubierto=abonReal+donado+ahorro; }
+
   const falta=Math.max(0,monto-cubierto);
   const den=Math.max(monto,cubierto,1);
   const seg=(v,color,label)=> v>0?`<div class="seg" style="width:${(v/den*100).toFixed(2)}%;background:${color}" title="${label}: ${money(v)}"></div>`:"";
+
   const byCat={};
   S.budget.forEach(x=>{ const c=(x.category||"Sin categoría"); byCat[c]=(byCat[c]||0)+(+x.monto||0); });
   const cats=Object.keys(byCat).map(c=>({c,v:byCat[c]})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
   const max=cats.length?cats[0].v:1;
   const barsCat=cats.map(x=>`<div class="cbar"><div class="cbar-l" title="${esc(x.c)}">${esc(x.c)}</div><div class="cbar-track"><div class="cbar-fill" style="width:${(x.v/max*100).toFixed(1)}%"></div></div><div class="cbar-v">${money(x.v)}</div></div>`).join("");
+
+  // Estadísticas adicionales
+  const nRubros=S.budget.length;
+  const nPagados=S.budget.filter(x=>{ const m=+x.monto||0; return x.donado || (m>0 && (+x.abonado||0)>=m); }).length;
+  const nConSaldo=nRubros-nPagados;
+  const rubroMasCaro=cats.length?cats[0]:null;
+  const promedioRubro=nRubros?montoBruto/nRubros:0;
+  const gt=guestTotals();
+  const costoPorInvitado=gt.total?montoBruto/gt.total:0;
+  const costoPorConfirmado=gt.si?montoBruto/gt.si:0;
+  const pctAvance=monto>0?Math.min(100,Math.round(cubierto/monto*100)):0;
+  const pctDonado=montoBruto>0?Math.round(donado/montoBruto*100):0;
+
   el.innerHTML=`
     <div class="chart-block">
-      <div class="k">Cobertura del presupuesto · ${money(cubierto)} de ${money(monto)}</div>
-      <div class="cover-bar">${seg(abonReal,"var(--ok)","Abonado")}${seg(donado,"#7a5ba8","Donado")}${seg(ahorro,"var(--gold)","Ahorro")}${seg(falta,"#e3d4c8","Falta")}</div>
+      <div class="k">Cobertura del presupuesto · ${money(cubierto)} de ${money(monto)} (${pctAvance}%)</div>
+      <div class="cover-bar">${seg(abonReal,"var(--ok)","Abonado")}${verDonado?seg(donado,"#7a5ba8","Donado"):""}${verAhorro?seg(ahorro,"var(--gold)","Ahorro"):""}${seg(falta,"#e3d4c8","Falta")}</div>
       <div class="leyenda">
         <span><i style="background:var(--ok)"></i> Abonado ${money(abonReal)}</span>
-        <span><i style="background:#7a5ba8"></i> Donado ${money(donado)}</span>
-        <span><i style="background:var(--gold)"></i> Ahorro ${money(ahorro)}</span>
+        ${verDonado?`<span><i style="background:#7a5ba8"></i> Donado ${money(donado)}</span>`:""}
+        ${verAhorro?`<span><i style="background:var(--gold)"></i> Ahorro ${money(ahorro)}</span>`:""}
         ${falta>0?`<span><i style="background:#e3d4c8"></i> Falta ${money(falta)}</span>`:`<span style="color:var(--ok)">✓ Totalmente cubierto</span>`}
       </div>
     </div>
     <div class="chart-block">
-      <div class="k">Gasto por categoría</div>
+      <div class="k">Gasto por categoría <span class="muted" style="text-transform:none; letter-spacing:0; font-weight:400">(monto total, sin filtrar por vista)</span></div>
       ${barsCat||'<p class="muted" style="font-size:13px;margin:0">Aún no hay gastos.</p>'}
+    </div>
+    <div class="chart-block">
+      <div class="k">Más estadísticas</div>
+      <div class="cards">
+        <div class="stat"><div class="k">Rubros liquidados</div><div class="v small">${nPagados}<span class="muted" style="font-size:15px">/${nRubros}</span></div><div class="meta">${nConSaldo} con saldo pendiente</div></div>
+        <div class="stat"><div class="k">Rubro más caro</div><div class="v small">${rubroMasCaro?money(rubroMasCaro.v):"—"}</div><div class="meta">${rubroMasCaro?esc(rubroMasCaro.c):"Sin gastos aún"}</div></div>
+        <div class="stat"><div class="k">Promedio por rubro</div><div class="v small">${money(promedioRubro)}</div><div class="meta">${nRubros} rubro${nRubros===1?"":"s"} en total</div></div>
+        <div class="stat"><div class="k">Costo por invitado</div><div class="v small">${money(costoPorInvitado)}</div><div class="meta">sobre ${gt.total} invitados</div></div>
+        <div class="stat"><div class="k">Costo por confirmado</div><div class="v small">${gt.si?money(costoPorConfirmado):"—"}</div><div class="meta">${gt.si?`sobre ${gt.si} confirmados`:"aún sin confirmados"}</div></div>
+        <div class="stat"><div class="k">Donado del presupuesto</div><div class="v small">${pctDonado}%</div><div class="meta">${nDonados} rubro${nDonados===1?"":"s"} donado${nDonados===1?"":"s"} · ${money(donado)}</div></div>
+      </div>
     </div>`;
 }
 
 /* ---------- Invitados ---------- */
 function addGuest(){ S.guests.push({id:uid(),name:"",group:"",count:1,rsvp:"pend",table:"",contact:""}); save(); renderGuests(); }
+// Orden de la lista de invitados: "default" (como se agregaron) o "confirmDate" (más nuevo confirmado primero)
+let guestSort="default";
+function setGuestSort(s){ guestSort=s; renderGuests(); }
+function goConfirmedGuests(){ guestSort="confirmDate"; switchTab("invitados"); renderGuests(); }
 function tableName(id){ const t=(S.tables||[]).find(x=>x.id===id); return t?t.name:""; }
 const RSVP_LABEL={si:"Confirmado",no:"No asiste",pend:"Pendiente"};
 function exportGuestsCSV(){
@@ -1295,6 +1341,14 @@ function renderGuests(){
     if(sf==="no" && g.sent) return false;
     return true;
   });
+  if(guestSort==="confirmDate"){
+    // más recién confirmado primero; los que no tienen fecha de confirmación quedan al final
+    list.sort((a,b)=>{
+      const ta=CONF[a.id]&&CONF[a.id].confirmado_at ? new Date(CONF[a.id].confirmado_at).getTime() : -Infinity;
+      const tb=CONF[b.id]&&CONF[b.id].confirmado_at ? new Date(CONF[b.id].confirmado_at).getTime() : -Infinity;
+      return tb-ta;
+    });
+  }
 
   const tb=document.querySelector("#guestTbl tbody");
   tb.innerHTML=list.length?list.map(x=>{
@@ -1342,7 +1396,8 @@ function renderGuests(){
         <button class="icon" title="Eliminar" onclick="del('guests','${x.id}');renderGuests()">🗑</button></td></tr>`;}).join(""):`<tr><td colspan="6"><div class="empty">${S.guests.length?"Ningún invitado coincide con el filtro.":"Aún no hay invitados. Agrega el primero."}</div></td></tr>`;
 
   const lbl=document.getElementById("guestCountLbl");
-  if(lbl) lbl.textContent=`Mostrando ${list.length} de ${S.guests.length}`;
+  if(lbl) lbl.innerHTML=`Mostrando ${list.length} de ${S.guests.length}`
+    +(guestSort==="confirmDate"?` · 🕐 ordenado por confirmación reciente <a href="#" onclick="setGuestSort('default');return false" style="margin-left:4px">(quitar orden)</a>`:"");
 
   const gt=guestTotals(), people=gt.total, si=gt.si, no=gt.no, pend=gt.pend;
   const sent=S.guests.filter(g=>g.sent).length;
