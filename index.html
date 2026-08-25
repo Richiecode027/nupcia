@@ -394,7 +394,7 @@
           <option value="">Toda confirmación</option>
           <option value="pend">Pendientes</option>
           <option value="si">Confirmados</option>
-          <option value="no">No asisten</option>
+          <option value="no">Con ausentes</option>
         </select>
         <select id="guestSentFilter" onchange="renderGuests()">
           <option value="">Todo envío</option>
@@ -1289,7 +1289,8 @@ function renderGuests(){
   const list=S.guests.filter(g=>{
     if(search && !searchNorm(g.name).includes(search)) return false;
     if(gf && g.group!==gf) return false;
-    if(rf && (g.rsvp||"pend")!==rf) return false;
+    if(rf==="no"){ if(guestSplit(g).no<=0) return false; }             // incluye no-shows parciales (confirmaron menos pases de los que tenían)
+    else if(rf && (g.rsvp||"pend")!==rf) return false;
     if(sf==="si" && !g.sent) return false;
     if(sf==="no" && g.sent) return false;
     return true;
@@ -1310,7 +1311,9 @@ function renderGuests(){
         if(N<=1){
           wc=`<div class="webconf" title="${tip}"><span class="wc-si">🌐 Confirmó vía web</span></div>`;
         } else {
+          const faltan=N-K;
           wc=`<div class="webconf" title="${tip}"><span class="wc-si">🌐 Confirmaron ${K} de ${N}</span>`
+            +(faltan>0?` <span class="wc-no">· ${faltan} no ${faltan>1?'asisten':'asiste'}</span>`:``)
             +(names.length?` <span class="wc-names">${esc(names.join(", "))}</span>`:``)
             +`</div>`;
         }
