@@ -197,11 +197,19 @@
 
   /* Cronograma */
   .timeline{margin-top:8px}
-  .tl-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line)}
-  .tl-row:last-child{border-bottom:none}
+  .tl-group{border-bottom:1px solid var(--line); padding:2px 0}
+  .tl-group:last-child{border-bottom:none}
+  .tl-row{display:flex; align-items:center; gap:10px; padding:8px 0}
   .tl-row input.tl-time{width:110px; border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:14px; font-weight:600; color:var(--gold-deep)}
-  .tl-row input.tl-act{flex:1; border:1px solid transparent; background:transparent; font-family:inherit; font-size:14.5px; padding:7px 9px; border-radius:8px; color:var(--ink)}
+  .tl-row input.tl-act{flex:1; border:1px solid transparent; background:transparent; font-family:Georgia,serif; font-weight:700; font-size:16px; padding:7px 9px; border-radius:8px; color:var(--ink)}
   .tl-row input:focus{outline:none; border-color:var(--sage); background:#fff}
+  .tl-children{margin:0 0 8px 30px; padding-left:14px; border-left:2px solid var(--line)}
+  .tl-child{display:flex; align-items:center; gap:6px; padding:2px 0}
+  .tl-child::before{content:"–"; color:var(--muted); font-size:13px}
+  .tl-child input.tl-child-act{flex:1; border:1px solid transparent; background:transparent; font-family:inherit; font-size:13px; padding:5px 8px; border-radius:7px; color:var(--muted)}
+  .tl-child input.tl-child-act:focus{outline:none; border-color:var(--sage); background:#fff; color:var(--ink)}
+  .tl-addchild{font-size:12px; color:var(--sage); background:none; border:none; cursor:pointer; padding:2px 8px 6px 30px; font-family:inherit}
+  .tl-addchild:hover{color:var(--gold-deep)}
 
   /* Modal mensaje */
   .msg-overlay{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -538,9 +546,11 @@
         <div class="field"><label>Lugar</label><input id="sPlace" placeholder="Ciudad / hacienda / salón"></div>
         <div class="field"><label>Presupuesto total ($)</label><input id="sBudget" type="number" min="0" step="100" placeholder="0"></div>
         <div class="field"><label>PIN de acceso (opcional)</label><input id="sPin" inputmode="numeric" maxlength="8" placeholder="Vacío = sin PIN"></div>
+        <div class="field"><label>Cierre de confirmaciones (RSVP)</label><input id="sRsvpDeadline" type="date"></div>
       </div>
       <div style="margin-top:14px"><button class="btn primary" onclick="saveSettings()">Guardar datos</button></div>
       <p class="muted" style="font-size:12px; margin-top:10px">El PIN pide una clave al abrir la app. Es una protección ligera (no cifrado), suficiente para uso casual.</p>
+      <p class="muted" style="font-size:12px; margin-top:6px">⚠ El cierre de confirmaciones solo actualiza el contador y el mensaje de WhatsApp aquí en Nupcia. El sitio de invitación (donde confirman los invitados) tiene su propia fecha y se actualiza por separado — avísame si la cambias para sincronizarla ahí también.</p>
     </section>
 
     <section class="block">
@@ -605,7 +615,7 @@ function seedSchedule(){
   ];
 }
 function defaults(){
-  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:""}, budget:[], savings:[], guests:[], people:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
+  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:"",rsvpDeadline:"2026-08-31"}, budget:[], savings:[], guests:[], people:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
 }
 // Migración del presupuesto: estimado/real/pagado -> monto/abonado/donado, y caja de ahorro
 function migrateBudget(raw){
@@ -684,7 +694,7 @@ function setStatus(state, text){
 
 function startApp(){
   // carga inmediata desde caché para no ver pantalla vacía
-  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); normalizePhases(raw); migrateBudget(raw); S=Object.assign(defaults(), raw); } }catch(e){}
+  try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); normalizePhases(raw); migrateBudget(raw); migrateGroups(raw); S=Object.assign(defaults(), raw); } }catch(e){}
   renderAll();
   connectSupabase();
 }
@@ -709,7 +719,7 @@ function connectSupabase(){
       // la pestaña antes de que terminara el envío). No la pisamos: la reenviamos.
       const localNewer = S._ts && raw._ts && S._ts > raw._ts;
       if(hasLocalEdits || localNewer){ save(true); }
-      else { const m1=migrateIfNeeded(raw), m2=normalizePhases(raw), m3=migrateBudget(raw); onRemote(raw); if(m1||m2||m3) save(true); }
+      else { const m1=migrateIfNeeded(raw), m2=normalizePhases(raw), m3=migrateBudget(raw), m4=migrateGroups(raw); onRemote(raw); if(m1||m2||m3||m4) save(true); }
     } else pushFull();
     ready=true; setStatus("online","Sincronizado en tiempo real");
     applyAllConfirmations();
@@ -763,16 +773,56 @@ function subscribeConfirmaciones(){
    Si todas las mesas del grupo están llenas, se crea otra mesa de ese
    grupo y se sienta ahí. Si responden que no asisten, se borran sus
    personas y se liberan sus lugares. */
+// Lista única y oficial de grupos — la fuente de verdad para el combo de "Grupo"
+// en Invitados. Antes era texto libre y variantes como "Familia materna novio"
+// vs "Familia materna del novio" contaban como grupos DISTINTOS (se sentaban en
+// mesas separadas sin darse cuenta). El combo evita que vuelva a pasar.
+const GROUPS=["Familia paterna de la novia","Familia materna de la novia","Familia paterna del novio","Familia materna del novio","Amigos de la novia","Amigos del novio","Amigos de iglesia de la novia","Amigos de iglesia del novio","Banda","Política"];
+// Variantes ya guardadas (mal escritas / abreviadas) → su forma oficial. Se usa
+// una sola vez para poner al día los datos existentes (migrateGroups).
+const GROUP_ALIASES={
+  "familia paterna de la novia":"Familia paterna de la novia",
+  "familia materna de la novia":"Familia materna de la novia",
+  "familia paterna del novio":"Familia paterna del novio",
+  "familia paterna de la novio":"Familia paterna del novio",
+  "familia materna del novio":"Familia materna del novio",
+  "familia materna novio":"Familia materna del novio",
+  "amigos de la novia":"Amigos de la novia",
+  "amigos novia":"Amigos de la novia",
+  "amigos del novio":"Amigos del novio",
+  "amigos novio":"Amigos del novio",
+  "amigos de iglesia de la novia":"Amigos de iglesia de la novia",
+  "amigos de iglesia novia":"Amigos de iglesia de la novia",
+  "amigos iglesia novia":"Amigos de iglesia de la novia",
+  "amigos de iglesia del novio":"Amigos de iglesia del novio",
+  "amigos de iglesia novio":"Amigos de iglesia del novio",
+  "amigos iglesia novio":"Amigos de iglesia del novio",
+  "banda":"Banda",
+  "politica":"Política", "política":"Política"
+};
+function canonGroup(g){
+  if(!g) return g;
+  const key=String(g).trim().toLowerCase();
+  return GROUP_ALIASES[key] || g;
+}
+// Migración única: estandariza S.guests[].group y S.tables[].group a GROUPS.
+function migrateGroups(raw){
+  let changed=false;
+  (raw.guests||[]).forEach(g=>{ const c=canonGroup(g.group); if(c!==g.group){ g.group=c; changed=true; } });
+  (raw.tables||[]).forEach(t=>{ const c=canonGroup(t.group); if(c!==t.group){ t.group=c; changed=true; } });
+  (raw.people||[]).forEach(p=>{ const c=canonGroup(p.group); if(c!==p.group){ p.group=c; changed=true; } });
+  return changed;
+}
 const SHORTMESA={
   "Familia paterna de la novia":"Fam. paterna novia",
   "Familia materna de la novia":"Fam. materna novia",
   "Familia paterna del novio":"Fam. paterna novio",
   "Familia materna del novio":"Fam. materna novio",
   "Amigos de la novia":"Amigos novia",
-  "Amigos novio":"Amigos novio",
-  "Amigos de iglesia novia":"Iglesia novia",
-  "Amigos de iglesia novio":"Iglesia novio",
-  "Banda":"Banda", "Politica":"Politica"
+  "Amigos del novio":"Amigos novio",
+  "Amigos de iglesia de la novia":"Iglesia novia",
+  "Amigos de iglesia del novio":"Iglesia novio",
+  "Banda":"Banda", "Política":"Política"
 };
 function tableLabel(group){ return SHORTMESA[group] || group || "Mesa"; }
 // Formatea un nombre escrito en mayúsculas a "Nombre Apellido", con acentos comunes
@@ -910,7 +960,7 @@ function restoreSnapshot(idx){
 // Camino común de restauración (snapshots y respaldo .json importado)
 function applyRestoredData(raw, msg){
   maybeSnapshot(true);   // respaldar el estado actual antes de pisarlo
-  migrateIfNeeded(raw); normalizePhases(raw); migrateBudget(raw);
+  migrateIfNeeded(raw); normalizePhases(raw); migrateBudget(raw); migrateGroups(raw);
   S=Object.assign(defaults(), raw);
   save(true); renderAll();
   toast(msg||"Datos restaurados ✓");
@@ -1234,8 +1284,8 @@ function copyConfirmLink(id){
     ()=>{ prompt("Copia el enlace:", url); }
   );
 }
-// Fecha límite de confirmación (la misma que dice la invitación web)
-const RSVP_DEADLINE="2026-08-31";
+// Fecha límite de confirmación (configurable en Ajustes → Cierre de confirmaciones)
+function rsvpDeadline(){ return (S.settings&&S.settings.rsvpDeadline)||"2026-08-31"; }
 function sendWhatsapp(id){
   const g=S.guests.find(x=>x.id===id); if(!g) return;
   if(!g.name || !g.name.trim()){ toast("Ponle nombre al invitado primero"); return; }
@@ -1244,10 +1294,11 @@ function sendWhatsapp(id){
   const fecha=s.date?new Date(s.date+"T00:00:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):"";
   const pases=+g.count||1;
   const url=confirmLink(g);
+  const fechaLimite=new Date(rsvpDeadline()+"T00:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long"});
   const txt=`¡Hola! 💍 Somos *${novios}* y ¡nos casamos!`+
     (fecha?`\nNos encantaría contar con ustedes el *${fecha}*.`:"")+
     `\nEsta es la invitación para *${g.name}*`+(pases>1?` (${pases} pases)`:"")+`:\n${url}`+
-    `\nPor favor confirmar antes del *31 de agosto* 🙏`;
+    `\nPor favor confirmar antes del *${fechaLimite}* 🙏`;
   if(!g.sent){ g.sent=true; g.sentAt=Date.now(); }
   save(); renderGuests();
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");
@@ -1381,7 +1432,11 @@ function renderGuests(){
     const seatedNames=seated.length?`<div style="font-size:11.5px;color:var(--ok);margin-top:3px;line-height:1.4">👤 ${esc(seated.map(p=>p.name).join(", "))} <i style="color:var(--muted);font-style:normal">(${seated.length})</i></div>`:"";
     return `<tr>
       <td><input value="${esc(x.name)}" placeholder="Nombre y apellido" onchange="upd('guests','${x.id}','name',this.value)">${seatedNames}</td>
-      <td><input value="${esc(x.group)}" placeholder="Familia novia / amigos…" onchange="upd('guests','${x.id}','group',this.value)"></td>
+      <td><select onchange="upd('guests','${x.id}','group',this.value)">
+        <option value="" ${!x.group?"selected":""}>— Selecciona —</option>
+        ${GROUPS.map(gr=>`<option value="${esc(gr)}" ${x.group===gr?"selected":""}>${esc(gr)}</option>`).join("")}
+        ${x.group && !GROUPS.includes(x.group)?`<option value="${esc(x.group)}" selected>${esc(x.group)} (sin estandarizar)</option>`:""}
+      </select></td>
       <td><input type="number" min="0" value="${x.count}" onchange="upd('guests','${x.id}','count',this.value);renderGuests()"></td>
       <td><select class="pill ${cls}" onchange="upd('guests','${x.id}','rsvp',this.value);renderGuests()">
         <option value="pend" ${x.rsvp==="pend"?"selected":""}>Pendiente</option>
@@ -1413,9 +1468,9 @@ function renderGuests(){
 // Aviso pequeño con los días que faltan para el cierre de confirmaciones
 function renderRsvpDeadline(){
   const el=document.getElementById("rsvpDeadline"); if(!el) return;
-  const dias=Math.ceil((new Date(RSVP_DEADLINE+"T23:59:59")-Date.now())/86400000);
+  const dias=Math.ceil((new Date(rsvpDeadline()+"T23:59:59")-Date.now())/86400000);
   const sinResp=S.guests.filter(g=>(g.rsvp||"pend")==="pend").length;
-  const fecha=new Date(RSVP_DEADLINE+"T00:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long"});
+  const fecha=new Date(rsvpDeadline()+"T00:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"long"});
   let txt, color;
   if(dias>0){
     txt=`⏰ Quedan <b>${dias} día${dias===1?"":"s"}</b> para el cierre de confirmaciones (${fecha})`+(sinResp?` · <b>${sinResp}</b> familia${sinResp===1?"":"s"} sin responder`:" · ¡todas las familias respondieron! 🎉");
@@ -1550,7 +1605,7 @@ function autoArrange(){
   if(!confirm("Reacomodará a TODOS los confirmados en mesas por grupo (10 por mesa) y reemplazará el acomodo actual.\n\n¿Continuar?")) return;
   const CAP=10;
   // orden de grupos para que las mesas queden ordenadas
-  const ORDER=["Familia paterna de la novia","Familia materna de la novia","Familia paterna del novio","Familia materna del novio","Amigos de la novia","Amigos novio","Amigos de iglesia novia","Amigos de iglesia novio","Banda","Politica"];
+  const ORDER=GROUPS;
   const byG={};
   people.forEach(p=>{ (byG[p.group]=byG[p.group]||[]).push(p); });
   const groups=Object.keys(byG).sort((a,b)=>{ const ia=ORDER.indexOf(a), ib=ORDER.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
@@ -1715,13 +1770,40 @@ function renderMesasPlano(){
 /* ---------- Cronograma ---------- */
 function renderSchedule(){
   const sch=S.schedule||[];
-  document.getElementById("timeline").innerHTML = sch.length? sch.map(s=>`<div class="tl-row">
-    <input class="tl-time" value="${esc(s.time)}" placeholder="Hora" onchange="upd('schedule','${s.id}','time',this.value)">
-    <input class="tl-act" value="${esc(s.activity)}" placeholder="¿Qué pasa a esta hora?" onchange="upd('schedule','${s.id}','activity',this.value)">
-    <button class="icon" title="Eliminar" onclick="del('schedule','${s.id}');renderSchedule()">🗑</button>
-  </div>`).join("") : '<div class="empty">Agrega el primer momento del día.</div>';
+  document.getElementById("timeline").innerHTML = sch.length? sch.map(s=>{
+    const kids=s.children||[];
+    const kidsHtml=kids.map(c=>`<div class="tl-child">
+      <input class="tl-child-act" value="${esc(c.text)}" placeholder="Punto…" onchange="updScheduleChild('${s.id}','${c.id}',this.value)">
+      <button class="icon" title="Eliminar" onclick="delScheduleChild('${s.id}','${c.id}')">🗑</button>
+    </div>`).join("");
+    return `<div class="tl-group">
+      <div class="tl-row">
+        <input class="tl-time" value="${esc(s.time)}" placeholder="Hora" onchange="upd('schedule','${s.id}','time',this.value)">
+        <input class="tl-act" value="${esc(s.activity)}" placeholder="¿Qué pasa a esta hora?" onchange="upd('schedule','${s.id}','activity',this.value)">
+        <button class="icon" title="Eliminar" onclick="del('schedule','${s.id}');renderSchedule()">🗑</button>
+      </div>
+      ${kidsHtml}
+      <button class="tl-addchild" onclick="addScheduleChild('${s.id}')">+ Agregar punto</button>
+    </div>`;
+  }).join("") : '<div class="empty">Agrega el primer momento del día.</div>';
 }
-function addSchedule(){ if(!S.schedule) S.schedule=[]; S.schedule.push({id:uid(),time:"",activity:""}); save(); renderSchedule(); }
+function addSchedule(){ if(!S.schedule) S.schedule=[]; S.schedule.push({id:uid(),time:"",activity:"",children:[]}); save(); renderSchedule(); }
+function addScheduleChild(parentId){
+  const s=(S.schedule||[]).find(x=>x.id===parentId); if(!s) return;
+  if(!s.children) s.children=[];
+  s.children.push({id:uid(),text:""});
+  save(); renderSchedule();
+}
+function updScheduleChild(parentId,childId,val){
+  const s=(S.schedule||[]).find(x=>x.id===parentId); if(!s||!s.children) return;
+  const c=s.children.find(x=>x.id===childId); if(!c) return;
+  c.text=val; save();
+}
+function delScheduleChild(parentId,childId){
+  const s=(S.schedule||[]).find(x=>x.id===parentId); if(!s||!s.children) return;
+  s.children=s.children.filter(x=>x.id!==childId);
+  save(); renderSchedule();
+}
 
 /* ---------- PIN de acceso ---------- */
 function maybePinGate(){
@@ -1760,8 +1842,8 @@ let notesT;
 notesEl.addEventListener("input",()=>{ S.notes=notesEl.value; clearTimeout(notesT); notesT=setTimeout(save,500); });
 
 /* ---------- Ajustes ---------- */
-function fillSettings(){ const s=S.settings; sName1.value=s.name1||""; sName2.value=s.name2||""; sDate.value=s.date||""; sPlace.value=s.place||""; sBudget.value=s.budget||""; sPin.value=s.pin||""; }
-function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.value.trim(),date:sDate.value,place:sPlace.value.trim(),budget:+sBudget.value||0,pin:sPin.value.trim()}; if(S.settings.pin) sessionStorage.setItem("nupcia_unlocked","1"); save(); renderHeader(); renderDash(); renderBudget(); toast("Datos guardados ✓"); }
+function fillSettings(){ const s=S.settings; sName1.value=s.name1||""; sName2.value=s.name2||""; sDate.value=s.date||""; sPlace.value=s.place||""; sBudget.value=s.budget||""; sPin.value=s.pin||""; sRsvpDeadline.value=s.rsvpDeadline||"2026-08-31"; }
+function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.value.trim(),date:sDate.value,place:sPlace.value.trim(),budget:+sBudget.value||0,pin:sPin.value.trim(),rsvpDeadline:sRsvpDeadline.value||"2026-08-31"}; if(S.settings.pin) sessionStorage.setItem("nupcia_unlocked","1"); save(); renderHeader(); renderDash(); renderBudget(); renderGuests(); toast("Datos guardados ✓"); }
 function exportData(){ const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}); const a=document.createElement("a"); const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,""); a.href=URL.createObjectURL(blob); a.download=`nupcia-${tag}-${new Date().toISOString().slice(0,10)}.json`; a.click(); toast("Respaldo descargado ✓"); }
 function importData(input){
   const f=input.files && input.files[0]; input.value="";
