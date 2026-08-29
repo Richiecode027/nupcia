@@ -200,13 +200,14 @@
   .tl-group{border-bottom:1px solid var(--line); padding:2px 0}
   .tl-group:last-child{border-bottom:none}
   .tl-row{display:flex; align-items:center; gap:10px; padding:8px 0}
-  .tl-row input.tl-time{width:110px; border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-family:inherit; font-size:14px; font-weight:600; color:var(--gold-deep)}
-  .tl-row input.tl-act{flex:1; border:1px solid transparent; background:transparent; font-family:Georgia,serif; font-weight:700; font-size:16px; padding:7px 9px; border-radius:8px; color:var(--ink)}
+  .tl-row .tl-time{display:inline-block; width:110px; border:1px solid var(--line); border-radius:8px; padding:7px 9px; box-sizing:border-box; font-family:inherit; font-size:14px; font-weight:600; color:var(--gold-deep)}
+  .tl-row .tl-act{flex:1; border:1px solid transparent; background:transparent; font-family:Georgia,serif; font-weight:700; font-size:16px; padding:7px 9px; border-radius:8px; color:var(--ink)}
+  span.tl-time{border-color:transparent; background:var(--bg)}
   .tl-row input:focus{outline:none; border-color:var(--sage); background:#fff}
   .tl-children{margin:0 0 8px 30px; padding-left:14px; border-left:2px solid var(--line)}
   .tl-child{display:flex; align-items:center; gap:6px; padding:2px 0}
   .tl-child::before{content:"–"; color:var(--muted); font-size:13px}
-  .tl-child input.tl-child-act{flex:1; border:1px solid transparent; background:transparent; font-family:inherit; font-size:13px; padding:5px 8px; border-radius:7px; color:var(--muted)}
+  .tl-child .tl-child-act{flex:1; border:1px solid transparent; background:transparent; font-family:inherit; font-size:13px; padding:5px 8px; border-radius:7px; color:var(--muted)}
   .tl-child input.tl-child-act:focus{outline:none; border-color:var(--sage); background:#fff; color:var(--ink)}
   .tl-addchild{font-size:12px; color:var(--sage); background:none; border:none; cursor:pointer; padding:2px 8px 6px 30px; font-family:inherit}
   .tl-addchild:hover{color:var(--gold-deep)}
@@ -325,6 +326,7 @@
   <button data-tab="resumen" class="active">✦ Resumen</button>
   <button data-tab="presupuesto">Presupuesto</button>
   <button data-tab="invitados">Invitados</button>
+  <button data-tab="listainv">Lista de invitados</button>
   <button data-tab="mesas">Mesas</button>
   <button data-tab="tareas">Tareas</button>
   <button data-tab="cronograma">Cronograma</button>
@@ -350,10 +352,10 @@
 
   <!-- PRESUPUESTO -->
   <div class="panel" id="tab-presupuesto">
-    <section class="block">
+    <section class="block" id="savingsSection">
       <div class="sec-head">
         <div><h2>Ahorro</h2><div class="desc">Quién está ahorrando y cuánto</div></div>
-        <button class="btn" onclick="addSaving()">+ Agregar ahorrante</button>
+        <button class="btn" id="addSavingBtn" onclick="addSaving()">+ Agregar ahorrante</button>
       </div>
       <div class="scroll"><div id="savingsBox"></div></div>
     </section>
@@ -361,7 +363,7 @@
     <section class="block">
       <div class="sec-head">
         <div><h2>Presupuesto</h2><div class="desc">Monto de cada rubro y lo abonado</div></div>
-        <button class="btn primary" onclick="addBudget()">+ Agregar gasto</button>
+        <button class="btn primary" id="addBudgetBtn" onclick="addBudget()">+ Agregar gasto</button>
       </div>
       <div id="budgetSummary"></div>
       <div class="scroll" style="margin-top:14px">
@@ -431,6 +433,30 @@
     </section>
   </div>
 
+  <!-- LISTA DE INVITADOS (personas confirmadas) -->
+  <div class="panel" id="tab-listainv">
+    <section class="block">
+      <div class="sec-head">
+        <div><h2>Lista de invitados</h2><div class="desc">Cada persona ya confirmada, con su grupo y de qué invitación viene</div></div>
+      </div>
+      <div class="filters">
+        <input class="search" id="plSearch" placeholder="🔍 Buscar por nombre…" oninput="renderPeopleList()">
+        <span class="count-lbl" id="plCountLbl"></span>
+      </div>
+      <div class="tfilter" id="plGroupChips" style="margin-bottom:14px"></div>
+      <div class="scroll">
+        <table class="tbl" id="peopleTbl">
+          <thead><tr>
+            <th style="cursor:pointer" onclick="setPlSort('name')" id="plThName">Nombre</th>
+            <th style="cursor:pointer" onclick="setPlSort('group')" id="plThGroup">Grupo</th>
+            <th style="cursor:pointer" onclick="setPlSort('inv')" id="plThInv">Invitación</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
   <!-- MESAS -->
   <div class="panel" id="tab-mesas">
     <section class="block">
@@ -439,11 +465,11 @@
         <div class="toolbar">
           <button class="btn" id="viewToggle" onclick="toggleMesaView()">📋 Ver como lista</button>
           <button class="btn" onclick="printMesas()">🖨 Imprimir / PDF</button>
-          <button class="btn" onclick="autoArrange()" title="Reacomoda a todos los confirmados por grupo, 10 por mesa">✨ Reagrupar por grupos</button>
-          <button class="btn primary" onclick="addTable()">+ Agregar mesa</button>
+          <button class="btn" id="autoArrangeBtn" onclick="autoArrange()" title="Reacomoda a todos los confirmados por grupo, 10 por mesa">✨ Reagrupar por grupos</button>
+          <button class="btn primary" id="addTableBtn" onclick="addTable()">+ Agregar mesa</button>
         </div>
       </div>
-      <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span> <span class="muted" style="font-size:12px">· arrastra un nombre a una mesa</span></div>
+      <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span> <span class="muted" id="poolHint" style="font-size:12px">· arrastra un nombre a una mesa</span></div>
       <div class="pool" id="mesaPool" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'')"></div>
       <div class="mesas-grid" id="mesasGrid"></div>
       <div class="seat-plano" id="mesaPlano"></div>
@@ -467,7 +493,7 @@
     <section class="block">
       <div class="sec-head">
         <div><h2>Cronograma del día</h2><div class="desc">Hora por hora: ceremonia, fiesta y momentos clave</div></div>
-        <button class="btn primary" onclick="addSchedule()">+ Agregar momento</button>
+        <button class="btn primary" id="addScheduleBtn" onclick="addSchedule()">+ Agregar momento</button>
       </div>
       <div class="timeline" id="timeline"></div>
     </section>
@@ -686,6 +712,35 @@ function setWriteKey(v){
     history.replaceState(null,"",location.pathname+location.search); }
 })();
 
+/* ---------- Vista de colaborador (solo lectura, secciones limitadas) ----------
+   Enlace ?vista=colaborador → activa el modo para siempre en este dispositivo
+   (útil para dar de alta con un solo clic). ?vista=completa lo quita, por si
+   algún día hace falta un escape (por ejemplo, si la pareja abre por error
+   su propio enlace de colaborador). Solo lectura: sin inputs editables, sin
+   botones de agregar/eliminar/arrastrar, sin la sección de Ahorro. */
+const COLLAB_STORE="nupcia_collab_view";
+const COLLAB_TABS=["listainv","presupuesto","mesas","cronograma"];
+(function(){
+  const p=new URLSearchParams(location.search);
+  const v=p.get("vista");
+  if(v==="colaborador"){ try{ localStorage.setItem(COLLAB_STORE,"1"); }catch(e){} }
+  else if(v==="completa"){ try{ localStorage.removeItem(COLLAB_STORE); }catch(e){} }
+  if(v){ history.replaceState(null,"",location.pathname); }
+})();
+function isCollab(){ try{ return localStorage.getItem(COLLAB_STORE)==="1"; }catch(e){ return false; } }
+const COLLAB=isCollab();
+function applyCollabView(){
+  if(!COLLAB) return;
+  document.querySelectorAll("nav#nav button").forEach(b=>{ if(!COLLAB_TABS.includes(b.dataset.tab)) b.style.display="none"; });
+  const share=document.querySelector('.syncbar button[onclick*="ajustes"]'); if(share) share.style.display="none";
+  const savings=document.getElementById("savingsSection"); if(savings) savings.style.display="none";
+  const addBudgetBtn=document.getElementById("addBudgetBtn"); if(addBudgetBtn) addBudgetBtn.style.display="none";
+  const viewBar=document.getElementById("budgetViewBar"); if(viewBar) viewBar.style.display="none";
+  ["addTableBtn","autoArrangeBtn","addScheduleBtn"].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display="none"; });
+  const poolHint=document.getElementById("poolHint"); if(poolHint) poolHint.textContent="";
+  switchTab("listainv");
+}
+
 function setStatus(state, text){
   const el=document.getElementById("status");
   el.className="status "+state;
@@ -696,6 +751,7 @@ function startApp(){
   // carga inmediata desde caché para no ver pantalla vacía
   try{ const c=localStorage.getItem(CACHE_KEY); if(c){ const raw=JSON.parse(c); migrateIfNeeded(raw); normalizePhases(raw); migrateBudget(raw); migrateGroups(raw); S=Object.assign(defaults(), raw); } }catch(e){}
   renderAll();
+  applyCollabView();
   connectSupabase();
 }
 
@@ -1148,6 +1204,15 @@ function renderBudget(){
     const monto=+x.monto||0, donado=!!x.donado, abon=donado?monto:(+x.abonado||0);
     const pagado=!donado && monto>0 && abon>=monto;
     const cls=donado?"row-donado":(pagado?"row-pagado":"");
+    if(COLLAB){
+      return `<tr class="${cls}">
+        <td>${esc(x.category)}</td>
+        <td>${esc(x.item)}</td>
+        <td class="num">${money(monto)}</td>
+        <td class="num">${donado?`<span class="abon-donado">${money(monto)} · donado</span>`:money(x.abonado||0)}</td>
+        <td style="text-align:center">${donado?"✓":"—"}</td>
+        <td></td></tr>`;
+    }
     return `<tr class="${cls}">
       <td><input value="${esc(x.category)}" placeholder="Categoría" onchange="upd('budget','${x.id}','category',this.value)"></td>
       <td><input value="${esc(x.item)}" placeholder="Concepto" onchange="upd('budget','${x.id}','item',this.value)"></td>
@@ -1167,7 +1232,10 @@ function renderBudget(){
 
   const ahorro=(S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0);
   const falta=monto-abonTotal-ahorro;
-  document.getElementById("budgetSummary").innerHTML=`<div class="cards">
+  document.getElementById("budgetSummary").innerHTML = COLLAB ? `<div class="cards">
+    <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
+    <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
+  </div>` : `<div class="cards">
     <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
     <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
     <div class="stat"><div class="k">Ahorro</div><div class="v small" style="color:var(--gold-deep)">${money(ahorro)}</div></div>
@@ -1182,7 +1250,7 @@ function setBudgetView(v){ budgetView=v; renderBudgetChart(); }
 function renderBudgetChart(){
   const el=document.getElementById("budgetChart"); if(!el) return;
   const vb=document.getElementById("budgetViewBar");
-  if(vb) vb.innerHTML=BUDGET_VIEWS.map(([v,l])=>`<button class="${budgetView===v?"active":""}" onclick="setBudgetView('${v}')">${l}</button>`).join("");
+  if(vb && !COLLAB) vb.innerHTML=BUDGET_VIEWS.map(([v,l])=>`<button class="${budgetView===v?"active":""}" onclick="setBudgetView('${v}')">${l}</button>`).join("");
 
   const montoBruto=S.budget.reduce((a,x)=>a+(+x.monto||0),0);
   const abonReal=S.budget.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
@@ -1190,10 +1258,12 @@ function renderBudgetChart(){
   const ahorro=(S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0);
   const nDonados=S.budget.filter(x=>x.donado).length;
 
-  // Qué cuenta como "monto" y "cubierto" según la vista elegida
+  // Qué cuenta como "monto" y "cubierto" según la vista elegida (en modo
+  // colaborador siempre es "solo abonado": nunca se revela el ahorro)
+  const view=COLLAB?"soloabonado":budgetView;
   let monto, cubierto, verDonado=true, verAhorro=true;
-  if(budgetView==="sindonado"){ monto=montoBruto-donado; cubierto=abonReal+ahorro; verDonado=false; }
-  else if(budgetView==="soloabonado"){ monto=montoBruto; cubierto=abonReal; verDonado=false; verAhorro=false; }
+  if(view==="sindonado"){ monto=montoBruto-donado; cubierto=abonReal+ahorro; verDonado=false; }
+  else if(view==="soloabonado"){ monto=montoBruto; cubierto=abonReal; verDonado=false; verAhorro=false; }
   else { monto=montoBruto; cubierto=abonReal+donado+ahorro; }
 
   const falta=Math.max(0,monto-cubierto);
@@ -1500,6 +1570,56 @@ function renderMensajes(){
   }).join("");
 }
 
+/* ---------- Lista de invitados (personas confirmadas, filtrable por grupo) ---------- */
+let plGroupFilter=new Set();   // vacío = todos los grupos
+let plSort="name", plSortDir=1;
+function togglePlGroup(g){
+  if(plGroupFilter.has(g)) plGroupFilter.delete(g); else plGroupFilter.add(g);
+  renderPeopleList();
+}
+function clearPlGroups(){ plGroupFilter.clear(); renderPeopleList(); }
+function setPlSort(field){
+  if(plSort===field) plSortDir=-plSortDir; else { plSort=field; plSortDir=1; }
+  renderPeopleList();
+}
+function renderPeopleList(){
+  const chipsEl=document.getElementById("plGroupChips");
+  if(chipsEl){
+    chipsEl.innerHTML = `<button class="${plGroupFilter.size===0?"active":""}" onclick="clearPlGroups()">Todos</button>`
+      + GROUPS.map(g=>`<button class="${plGroupFilter.has(g)?"active":""}" onclick="togglePlGroup('${esc(g)}')">${esc(g)}</button>`).join("");
+  }
+  const people=S.people||[];
+  const search=searchNorm((document.getElementById("plSearch")?.value||"").trim());
+  const invName=id=>{ const g=(S.guests||[]).find(x=>x.id===id); return g?g.name:""; };
+  let list=people.filter(p=>{
+    if(plGroupFilter.size && !plGroupFilter.has(p.group)) return false;
+    if(search && !searchNorm(p.name).includes(search)) return false;
+    return true;
+  }).map(p=>({...p, invName:invName(p.invId)}));
+
+  const collator=new Intl.Collator("es");
+  list.sort((a,b)=>{
+    const av=plSort==="group"?(a.group||""):plSort==="inv"?(a.invName||""):(a.name||"");
+    const bv=plSort==="group"?(b.group||""):plSort==="inv"?(b.invName||""):(b.name||"");
+    return plSortDir*collator.compare(av,bv);
+  });
+
+  const arrow=f=> plSort===f ? (plSortDir===1?" ▲":" ▼") : "";
+  document.getElementById("plThName").textContent="Nombre"+arrow("name");
+  document.getElementById("plThGroup").textContent="Grupo"+arrow("group");
+  document.getElementById("plThInv").textContent="Invitación"+arrow("inv");
+
+  const tb=document.querySelector("#peopleTbl tbody");
+  tb.innerHTML = list.length ? list.map(p=>`<tr>
+    <td>${esc(p.name)}</td>
+    <td>${esc(p.group||"—")}</td>
+    <td class="muted">${esc(p.invName)}</td>
+  </tr>`).join("") : `<tr><td colspan="3"><div class="empty">${people.length?"Nadie coincide con el filtro.":"Aún no hay invitados confirmados."}</div></td></tr>`;
+
+  const lbl=document.getElementById("plCountLbl");
+  if(lbl) lbl.textContent=`Mostrando ${list.length} de ${people.length}`;
+}
+
 /* ---------- Tareas ---------- */
 let taskFilter="";
 function setTaskFilter(f){ taskFilter=f; renderTasks(); }
@@ -1655,6 +1775,7 @@ function nameDrop(e,targetId,el){
 
 function chipHtml(g,assigned){
   const cnt=(+g.count>1)?(" ×"+g.count):"";
+  if(COLLAB) return `<span class="chip ${assigned?"assigned":""}">${esc(g.name)}${cnt}</span>`;
   const tables=S.tables||[];
   let extra="";
   if(assigned){ extra=`<span class="x" title="Quitar de la mesa" onclick="assignGuest('${g.id}','')">✕</span>`; }
@@ -1729,6 +1850,13 @@ function renderMesasLista(){
     const gs=(S.people||[]).filter(g=>g.table===t.id);
     const occ=gs.reduce((a,g)=>a+(+g.count||0),0);
     const over=t.seats && occ>t.seats;
+    if(COLLAB){
+      return `<div class="mesa ${over?"full":""}">
+        <div class="mesa-head"><b>${esc(t.name)}</b></div>
+        <div class="mesa-cap ${over?"over":""}">${occ}${t.seats?(" / "+t.seats):""} lugares</div>
+        <div>${gs.length?gs.map(g=>chipHtml(g,true)).join(""):'<span class="muted" style="font-size:12px">Vacía</span>'}</div>
+      </div>`;
+    }
     return `<div class="mesa ${over?"full":""}" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')">
       <div class="mesa-head">
         <input class="mesa-name" value="${esc(t.name)}" onchange="updTable('${t.id}','name',this.value)">
@@ -1754,8 +1882,18 @@ function renderMesasPlano(){
       const ang=(-90 + i*360/Math.max(n,1))*Math.PI/180;
       const x=C+R*Math.cos(ang), y=C+R*Math.sin(ang);
       const cnt=(+g.count>1)?(" ×"+g.count):"";
+      if(COLLAB) return `<span class="seat-name" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px" title="${esc(g.name)}">${esc(g.name)}${cnt}</span>`;
       return `<span class="seat-name" draggable="true" ondragstart="dragGuest(event,'${g.id}')" ondragover="nameDragOver(event,this)" ondragleave="this.classList.remove('drop-here')" ondrop="nameDrop(event,'${g.id}',this)" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px" title="${esc(g.name)} — suelta otro nombre aquí para sentarlo a su lado"><span class="x" onclick="assignGuest('${g.id}','')" title="Quitar">✕</span>${esc(g.name)}${cnt}</span>`;
     }).join("");
+    if(COLLAB){
+      return `<div class="seat-table" style="width:${SZ}px;height:${SZ}px">
+        ${names}
+        <div class="seat-circle ${over?"over":""}">
+          <b>${esc(t.name)}</b>
+          <div class="seat-occ ${over?"over":""}">${occ}/${t.seats||"—"}</div>
+        </div>
+      </div>`;
+    }
     return `<div class="seat-table" style="width:${SZ}px;height:${SZ}px" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')">
       ${names}
       <div class="seat-circle ${over?"over":""}">
@@ -1772,6 +1910,13 @@ function renderSchedule(){
   const sch=S.schedule||[];
   document.getElementById("timeline").innerHTML = sch.length? sch.map(s=>{
     const kids=s.children||[];
+    if(COLLAB){
+      const kidsHtml=kids.map(c=>`<div class="tl-child"><span class="tl-child-act">${esc(c.text)}</span></div>`).join("");
+      return `<div class="tl-group">
+        <div class="tl-row"><span class="tl-time">${esc(s.time)}</span><span class="tl-act">${esc(s.activity)}</span></div>
+        ${kidsHtml}
+      </div>`;
+    }
     const kidsHtml=kids.map(c=>`<div class="tl-child">
       <input class="tl-child-act" value="${esc(c.text)}" placeholder="Punto…" onchange="updScheduleChild('${s.id}','${c.id}',this.value)">
       <button class="icon" title="Eliminar" onclick="delScheduleChild('${s.id}','${c.id}')">🗑</button>
@@ -1808,6 +1953,7 @@ function delScheduleChild(parentId,childId){
 /* ---------- PIN de acceso ---------- */
 function maybePinGate(){
   const gate=document.getElementById("pinGate"); if(!gate) return;
+  if(COLLAB){ gate.hidden=true; return; }   // el enlace de colaborador entra directo, sin el PIN del planeador
   const pin=S.settings && S.settings.pin;
   if(pin && sessionStorage.getItem("nupcia_unlocked")!=="1"){
     if(gate.hidden){ gate.hidden=false; setTimeout(()=>{ const i=document.getElementById("pinInput"); if(i) i.focus(); },60); }
@@ -1880,7 +2026,7 @@ function renderSyncKey(){
 }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderBudget(); renderGuests(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); maybePinGate(); }
+function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderBudget(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });
