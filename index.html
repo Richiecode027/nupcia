@@ -319,6 +319,7 @@
   <div class="syncbar">
     <span class="status connecting" id="status"><span class="dot"></span><span id="statusText">Conectando…</span></span>
     <button class="btn ghost" style="font-size:12.5px; padding:5px 12px" onclick="switchTab('ajustes')">🔗 Compartir</button>
+    <button class="btn ghost" id="exitCollabBtn" style="display:none; font-size:12.5px; padding:5px 12px" onclick="exitCollabView()">🚪 Salir de esta vista</button>
   </div>
 </header>
 
@@ -554,6 +555,16 @@
     </section>
 
     <section class="block">
+      <div class="sec-head"><div><h2>👥 Enlace para colaboradores</h2>
+        <div class="desc">Es el mismo para todos los que ayuden. Solo ven Lista de invitados, Mesas y Cronograma — sin poder editar nada.</div></div></div>
+      <div class="share-link">
+        <input id="collabLink" readonly onclick="this.select()">
+        <button class="btn primary" onclick="copyCollabLink()">Copiar enlace</button>
+        <button class="btn" onclick="shareCollabWhatsapp()">Enviar por WhatsApp</button>
+      </div>
+    </section>
+
+    <section class="block">
       <div class="sec-head"><div><h2>🔒 Clave de sincronización</h2>
         <div class="desc">Protege la escritura: sin esta clave nadie puede modificar los datos de la boda, aunque conozca la base de datos.</div></div></div>
       <div class="share-link">
@@ -719,7 +730,7 @@ function setWriteKey(v){
    su propio enlace de colaborador). Solo lectura: sin inputs editables, sin
    botones de agregar/eliminar/arrastrar, sin la sección de Ahorro. */
 const COLLAB_STORE="nupcia_collab_view";
-const COLLAB_TABS=["listainv","presupuesto","mesas","cronograma"];
+const COLLAB_TABS=["listainv","mesas","cronograma"];
 (function(){
   const p=new URLSearchParams(location.search);
   const v=p.get("vista");
@@ -729,10 +740,12 @@ const COLLAB_TABS=["listainv","presupuesto","mesas","cronograma"];
 })();
 function isCollab(){ try{ return localStorage.getItem(COLLAB_STORE)==="1"; }catch(e){ return false; } }
 const COLLAB=isCollab();
+function exitCollabView(){ try{ localStorage.removeItem(COLLAB_STORE); }catch(e){} location.href=location.pathname; }
 function applyCollabView(){
   if(!COLLAB) return;
   document.querySelectorAll("nav#nav button").forEach(b=>{ if(!COLLAB_TABS.includes(b.dataset.tab)) b.style.display="none"; });
   const share=document.querySelector('.syncbar button[onclick*="ajustes"]'); if(share) share.style.display="none";
+  const exitBtn=document.getElementById("exitCollabBtn"); if(exitBtn) exitBtn.style.display="";
   const savings=document.getElementById("savingsSection"); if(savings) savings.style.display="none";
   const addBudgetBtn=document.getElementById("addBudgetBtn"); if(addBudgetBtn) addBudgetBtn.style.display="none";
   const viewBar=document.getElementById("budgetViewBar"); if(viewBar) viewBar.style.display="none";
@@ -1092,6 +1105,18 @@ function shareWhatsapp(){
   const txt="💍 Te comparto nuestro planeador de boda en Nupcia. Ábrelo para editarlo conmigo en tiempo real:\n"+shareUrl();
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");
 }
+// Enlace de colaborador: mismo para todos, solo lectura, sin la clave de sincronización
+function collabUrl(){ return location.origin+location.pathname+"?vista=colaborador"; }
+function copyCollabLink(){
+  const url=collabUrl();
+  navigator.clipboard.writeText(url).then(()=>toast("Enlace de colaborador copiado ✓"),()=>{
+    const i=document.getElementById("collabLink"); i.select(); document.execCommand("copy"); toast("Enlace de colaborador copiado ✓");
+  });
+}
+function shareCollabWhatsapp(){
+  const txt="💍 Te comparto el acceso al presupuesto, invitados, mesas y cronograma de nuestra boda:\n"+collabUrl();
+  window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");
+}
 function leaveSpace(){
 }
 
@@ -1120,6 +1145,7 @@ function renderHeader(){
   document.getElementById("hSub").textContent=sub;
   updateCount();
   const sl=document.getElementById("shareLink"); if(sl) sl.value=shareUrl();
+  const cl=document.getElementById("collabLink"); if(cl) cl.value=collabUrl();
 }
 function parseTime12(str){
   const m=String(str||"").trim().match(/^(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)?$/i);
