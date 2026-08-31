@@ -361,9 +361,17 @@
       <div class="scroll"><div id="savingsBox"></div></div>
     </section>
 
+    <section class="block" id="creditSection">
+      <div class="sec-head">
+        <div><h2>💳 Tarjeta de crédito</h2><div class="desc">Cuánto se debe, para descontarlo del ahorro real</div></div>
+        <button class="btn" id="addCreditBtn" onclick="addCredit()">+ Agregar tarjeta</button>
+      </div>
+      <div class="scroll"><div id="creditBox"></div></div>
+    </section>
+
     <section class="block">
       <div class="sec-head">
-        <div><h2>Presupuesto</h2><div class="desc">Monto de cada rubro y lo abonado</div></div>
+        <div><h2>Presupuesto de la boda</h2><div class="desc">Monto de cada rubro y lo abonado</div></div>
         <button class="btn primary" id="addBudgetBtn" onclick="addBudget()">+ Agregar gasto</button>
       </div>
       <div id="budgetSummary"></div>
@@ -384,6 +392,21 @@
       <div class="sec-head"><div><h2>Gráficas</h2><div class="desc">Cobertura del presupuesto y gasto por categoría</div></div></div>
       <div class="tfilter" id="budgetViewBar"></div>
       <div id="budgetChart"></div>
+    </section>
+
+    <section class="block" id="houseSection" style="border-top:3px solid var(--gold); margin-top:34px">
+      <div class="sec-head">
+        <div><h2>🏠 Gastos de la casa</h2><div class="desc">Separado de la boda a propósito, para no mezclar los números</div></div>
+        <button class="btn primary" id="addHouseBtn" onclick="addHouse()">+ Agregar gasto</button>
+      </div>
+      <div id="houseSummary"></div>
+      <div class="scroll" style="margin-top:14px">
+        <table class="tbl" id="houseTbl">
+          <thead><tr><th style="width:22%">Categoría</th><th style="width:28%">Concepto</th>
+            <th class="num">Monto</th><th class="num">Abonado</th><th style="width:80px; text-align:center">Donado</th><th></th></tr></thead>
+          <tbody></tbody><tfoot></tfoot>
+        </table>
+      </div>
     </section>
   </div>
 
@@ -652,7 +675,7 @@ function seedSchedule(){
   ];
 }
 function defaults(){
-  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:"",rsvpDeadline:"2026-08-31"}, budget:[], savings:[], guests:[], people:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
+  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:"",rsvpDeadline:"2026-08-31"}, budget:[], savings:[], creditCards:[], houseExpenses:[], guests:[], people:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
 }
 // Migración del presupuesto: estimado/real/pagado -> monto/abonado/donado, y caja de ahorro
 function migrateBudget(raw){
@@ -1222,6 +1245,32 @@ function renderSavings(){
   }</tbody><tfoot><tr><td>Total ahorro</td><td class="num">${money(total)}</td><td></td></tr></tfoot></table>`;
 }
 
+/* ---------- Tarjeta de crédito (deuda, se descuenta del ahorro real) ---------- */
+function addCredit(){ if(!S.creditCards) S.creditCards=[]; S.creditCards.push({id:uid(),who:"",amount:0}); save(); renderCredit(); renderBudget(); }
+function creditTotal(){ return (S.creditCards||[]).reduce((a,x)=>a+(+x.amount||0),0); }
+function ahorroTotal(){ return (S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0); }
+// Ahorro real disponible: lo ahorrado menos lo que se debe en tarjetas
+function ahorroNeto(){ return ahorroTotal()-creditTotal(); }
+// Cuánto sobra del presupuesto de la boda una vez cubierto todo (0 si aún falta) —
+// ese sobrante es dinero disponible para los gastos de la casa.
+function weddingSurplus(){
+  const monto=S.budget.reduce((a,x)=>a+(+x.monto||0),0);
+  const abonReal=S.budget.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
+  const donado=S.budget.reduce((a,x)=>a+(x.donado?(+x.monto||0):0),0);
+  const falta=monto-(abonReal+donado)-ahorroNeto();
+  return falta<0 ? -falta : 0;
+}
+function renderCredit(){
+  const list=S.creditCards||[];
+  const total=creditTotal();
+  document.getElementById("creditBox").innerHTML=`<table class="tbl"><tbody>${
+    list.length?list.map(x=>`<tr>
+      <td><input value="${esc(x.who)}" placeholder="¿Qué tarjeta / banco?" onchange="upd('creditCards','${x.id}','who',this.value)"></td>
+      <td><input type="number" min="0" class="num" value="${x.amount||0}" onchange="upd('creditCards','${x.id}','amount',this.value);renderCredit();renderBudget()"></td>
+      <td style="width:44px"><button class="icon" title="Eliminar" onclick="del('creditCards','${x.id}');renderCredit();renderBudget()">🗑</button></td></tr>`).join(""):`<tr><td colspan="3"><div class="empty">Sin tarjetas registradas.</div></td></tr>`
+  }</tbody><tfoot><tr><td>Total adeudado</td><td class="num" style="color:var(--danger)">${money(total)}</td><td></td></tr></tfoot></table>`;
+}
+
 /* ---------- Presupuesto ---------- */
 function addBudget(){ S.budget.push({id:uid(),category:"",item:"",monto:0,abonado:0,donado:false}); save(); renderBudget(); }
 function renderBudget(){
@@ -1256,7 +1305,7 @@ function renderBudget(){
   const abonTotal=abonReal+donado;
   document.querySelector("#budgetTbl tfoot").innerHTML=`<tr><td colspan="2">Totales</td><td class="num">${money(monto)}</td><td class="num">${money(abonTotal)}</td><td colspan="2"></td></tr>`;
 
-  const ahorro=(S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0);
+  const ahorroBruto=ahorroTotal(), deuda=creditTotal(), ahorro=ahorroNeto();
   const falta=monto-abonTotal-ahorro;
   document.getElementById("budgetSummary").innerHTML = COLLAB ? `<div class="cards">
     <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
@@ -1264,10 +1313,11 @@ function renderBudget(){
   </div>` : `<div class="cards">
     <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
     <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
-    <div class="stat"><div class="k">Ahorro</div><div class="v small" style="color:var(--gold-deep)">${money(ahorro)}</div></div>
+    <div class="stat"><div class="k">Ahorro neto</div><div class="v small" style="color:var(--gold-deep)">${money(ahorro)}</div><div class="meta">${money(ahorroBruto)} ahorrado − ${money(deuda)} de tarjetas</div></div>
     <div class="stat"><div class="k">${falta>0?"Falta por cubrir":"Excedente"}</div><div class="v small" style="color:${falta>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(falta))}</div></div>
   </div>`;
   renderBudgetChart();
+  renderHouse();   // el excedente de la boda alimenta el resumen de gastos de la casa
 }
 // Vista de la gráfica de cobertura: qué se cuenta como "cubierto"
 const BUDGET_VIEWS=[["todo","Todo (abonado + donado + ahorro)"],["sindonado","Sin lo donado"],["soloabonado","Solo lo abonado en efectivo"]];
@@ -1281,7 +1331,7 @@ function renderBudgetChart(){
   const montoBruto=S.budget.reduce((a,x)=>a+(+x.monto||0),0);
   const abonReal=S.budget.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
   const donado=S.budget.reduce((a,x)=>a+(x.donado?(+x.monto||0):0),0);
-  const ahorro=(S.savings||[]).reduce((a,x)=>a+(+x.amount||0),0);
+  const ahorro=ahorroNeto();   // ya descuenta lo que se debe en tarjetas
   const nDonados=S.budget.filter(x=>x.donado).length;
 
   // Qué cuenta como "monto" y "cubierto" según la vista elegida (en modo
@@ -1317,11 +1367,11 @@ function renderBudgetChart(){
   el.innerHTML=`
     <div class="chart-block">
       <div class="k">Cobertura del presupuesto · ${money(cubierto)} de ${money(monto)} (${pctAvance}%)</div>
-      <div class="cover-bar">${seg(abonReal,"var(--ok)","Abonado")}${verDonado?seg(donado,"#7a5ba8","Donado"):""}${verAhorro?seg(ahorro,"var(--gold)","Ahorro"):""}${seg(falta,"#e3d4c8","Falta")}</div>
+      <div class="cover-bar">${seg(abonReal,"var(--ok)","Abonado")}${verDonado?seg(donado,"#7a5ba8","Donado"):""}${verAhorro?seg(ahorro,"var(--gold)","Ahorro neto (después de tarjetas)"):""}${seg(falta,"#e3d4c8","Falta")}</div>
       <div class="leyenda">
         <span><i style="background:var(--ok)"></i> Abonado ${money(abonReal)}</span>
         ${verDonado?`<span><i style="background:#7a5ba8"></i> Donado ${money(donado)}</span>`:""}
-        ${verAhorro?`<span><i style="background:var(--gold)"></i> Ahorro ${money(ahorro)}</span>`:""}
+        ${verAhorro?`<span><i style="background:var(--gold)"></i> Ahorro neto ${money(ahorro)}</span>`:""}
         ${falta>0?`<span><i style="background:#e3d4c8"></i> Falta ${money(falta)}</span>`:`<span style="color:var(--ok)">✓ Totalmente cubierto</span>`}
       </div>
     </div>
@@ -1340,6 +1390,42 @@ function renderBudgetChart(){
         <div class="stat"><div class="k">Donado del presupuesto</div><div class="v small">${pctDonado}%</div><div class="meta">${nDonados} rubro${nDonados===1?"":"s"} donado${nDonados===1?"":"s"} · ${money(donado)}</div></div>
       </div>
     </div>`;
+}
+
+/* ---------- Gastos de la casa (separado a propósito del presupuesto de la boda) ---------- */
+function addHouse(){ if(!S.houseExpenses) S.houseExpenses=[]; S.houseExpenses.push({id:uid(),category:"",item:"",monto:0,abonado:0,donado:false}); save(); renderHouse(); }
+function renderHouse(){
+  const list=S.houseExpenses||[];
+  const tb=document.querySelector("#houseTbl tbody");
+  tb.innerHTML=list.length?list.map(x=>{
+    const monto=+x.monto||0, donado=!!x.donado, abon=donado?monto:(+x.abonado||0);
+    const pagado=!donado && monto>0 && abon>=monto;
+    const cls=donado?"row-donado":(pagado?"row-pagado":"");
+    return `<tr class="${cls}">
+      <td><input value="${esc(x.category)}" placeholder="Categoría" onchange="upd('houseExpenses','${x.id}','category',this.value)"></td>
+      <td><input value="${esc(x.item)}" placeholder="Concepto" onchange="upd('houseExpenses','${x.id}','item',this.value)"></td>
+      <td><input type="number" min="0" value="${monto}" onchange="upd('houseExpenses','${x.id}','monto',this.value);renderHouse()"></td>
+      <td>${donado
+        ? `<span class="abon-donado">${money(monto)} · donado</span>`
+        : `<input type="number" min="0" value="${x.abonado||0}" onchange="upd('houseExpenses','${x.id}','abonado',this.value);renderHouse()">`}</td>
+      <td style="text-align:center"><input type="checkbox" ${donado?"checked":""} title="Marcar todo el rubro como donado" onchange="upd('houseExpenses','${x.id}','donado',this.checked);renderHouse()"></td>
+      <td><button class="icon" title="Eliminar" onclick="del('houseExpenses','${x.id}');renderHouse()">🗑</button></td></tr>`;
+  }).join(""):`<tr><td colspan="6"><div class="empty">Sin gastos de la casa aún.</div></td></tr>`;
+
+  const monto=list.reduce((a,x)=>a+(+x.monto||0),0);
+  const abonReal=list.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
+  const donado=list.reduce((a,x)=>a+(x.donado?(+x.monto||0):0),0);
+  const abonTotal=abonReal+donado;
+  const gap=monto-abonTotal;                 // falta de la casa antes de aplicar lo que sobró de la boda
+  const sobranteBoda=weddingSurplus();
+  const faltaReal=gap-sobranteBoda;          // negativo = también sobra dinero después de cubrir la casa
+  document.querySelector("#houseTbl tfoot").innerHTML=`<tr><td colspan="2">Totales</td><td class="num">${money(monto)}</td><td class="num">${money(abonTotal)}</td><td colspan="2"></td></tr>`;
+  document.getElementById("houseSummary").innerHTML=`<div class="cards">
+    <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
+    <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
+    <div class="stat"><div class="k">Excedente de la boda</div><div class="v small" style="color:var(--gold-deep)">${money(sobranteBoda)}</div><div class="meta">Dinero que sobró del presupuesto de la boda</div></div>
+    <div class="stat"><div class="k">${faltaReal>0?"Falta por cubrir":"Excedente"}</div><div class="v small" style="color:${faltaReal>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(faltaReal))}</div><div class="meta">ya restando el excedente de la boda</div></div>
+  </div>`;
 }
 
 /* ---------- Invitados ---------- */
@@ -2004,7 +2090,7 @@ function upd(list,id,field,val){
   save(); renderHeader(); renderDash();
 }
 function del(list,id){
-  const labels={budget:"este gasto",savings:"este ahorrante",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",participants:"este participante",schedule:"este momento"};
+  const labels={budget:"este gasto",savings:"este ahorrante",creditCards:"esta tarjeta",houseExpenses:"este gasto de la casa",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",participants:"este participante",schedule:"este momento"};
   if(confirm("¿Eliminar "+(labels[list]||"este elemento")+"?")){ S[list]=S[list].filter(x=>x.id!==id); save(); renderDash(); renderHeader(); }
 }
 
@@ -2052,7 +2138,7 @@ function renderSyncKey(){
 }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderBudget(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); maybePinGate(); }
+function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderCredit(); renderBudget(); renderHouse(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });
