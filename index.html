@@ -252,6 +252,15 @@
   /* Presupuesto: colores de estado */
   .tbl tr.row-pagado td{background:#eef6f0}
   .tbl tr.row-donado td{background:#f4eefa}
+  .tbl tr.row-excluido td{opacity:.4}
+
+  /* Switch (Incluir en Gastos de la casa) */
+  .toggle-sw{position:relative; display:inline-block; width:36px; height:21px; vertical-align:middle}
+  .toggle-sw input{opacity:0; width:0; height:0; position:absolute}
+  .toggle-sw .slider{position:absolute; cursor:pointer; inset:0; background:var(--line); transition:.2s; border-radius:21px}
+  .toggle-sw .slider:before{content:""; position:absolute; height:15px; width:15px; left:3px; top:3px; background:#fff; transition:.2s; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.2)}
+  .toggle-sw input:checked+.slider{background:var(--sage)}
+  .toggle-sw input:checked+.slider:before{transform:translateX(15px)}
   .abon-donado{color:#7a5ba8; font-weight:600; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap}
   .leyenda{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:10px}
   .leyenda span{display:inline-flex; align-items:center; gap:6px}
@@ -293,9 +302,22 @@
   .seat-name .x{color:var(--muted); margin-right:4px; cursor:pointer; font-weight:700}
   .seat-name .x:hover{color:var(--danger)}
   .seat-name.drop-here, .chip.drop-here{border-color:var(--gold); box-shadow:0 0 0 3px var(--blush-deep); z-index:7}
+
+  /* Aviso de guardado fallido — imposible de ignorar */
+  .save-fail-banner{position:sticky; top:0; z-index:500; background:var(--danger); color:#fff;
+    padding:10px 16px; font-size:13.5px; text-align:center; display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap}
+  .save-fail-banner[hidden]{display:none}
+  .save-fail-banner b{font-weight:700}
+  .save-fail-banner button{background:#fff; color:var(--danger); border:none; border-radius:20px; padding:5px 14px; font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer}
 </style>
 </head>
 <body>
+
+<!-- ===== Aviso: los cambios no se están guardando en la nube ===== -->
+<div class="save-fail-banner" id="saveFailBanner" hidden>
+  <span>⚠️ <b>Tus cambios NO se están guardando en la nube</b> <span id="saveFailMsg"></span></span>
+  <button onclick="switchTab('ajustes')">Ir a Ajustes</button>
+</div>
 
 <!-- ===== Bloqueo por PIN ===== -->
 <div class="pin-overlay" id="pinGate" hidden>
@@ -396,16 +418,20 @@
 
     <section class="block" id="houseSection" style="border-top:3px solid var(--gold); margin-top:34px">
       <div class="sec-head">
-        <div><h2>🏠 Gastos de la casa</h2><div class="desc">Separado de la boda a propósito, para no mezclar los números</div></div>
+        <div><h2>🏠 Gastos de la casa</h2><div class="desc">Separado de la boda a propósito, para no mezclar los números. Mete todo lo que se les ocurra — el switch "Incluir" decide qué cuenta en los totales, sin borrar nada.</div></div>
         <button class="btn primary" id="addHouseBtn" onclick="addHouse()">+ Agregar gasto</button>
       </div>
       <div id="houseSummary"></div>
       <div class="scroll" style="margin-top:14px">
         <table class="tbl" id="houseTbl">
           <thead><tr><th style="width:22%">Categoría</th><th style="width:28%">Concepto</th>
-            <th class="num">Monto</th><th class="num">Abonado</th><th style="width:80px; text-align:center">Donado</th><th></th></tr></thead>
+            <th class="num">Monto</th><th class="num">Abonado</th><th style="width:70px; text-align:center">Incluir</th><th></th></tr></thead>
           <tbody></tbody><tfoot></tfoot>
         </table>
+      </div>
+      <div class="leyenda">
+        <span><i style="background:#eef6f0; border:1px solid #cfe3d6"></i> Rubro pagado por completo</span>
+        <span>Apagado = no cuenta en los totales (pero queda guardado)</span>
       </div>
     </section>
   </div>
@@ -738,6 +764,10 @@ function writeKey(){ try{ return localStorage.getItem(WKEY_STORE)||""; }catch(e)
 function setWriteKey(v){
   try{ if(v) localStorage.setItem(WKEY_STORE, v.trim()); else localStorage.removeItem(WKEY_STORE); }catch(e){}
   renderSyncKey();
+  if(ready){
+    if(!COLLAB && !writeKey()) setStatus("error","Falta la clave de sincronización (Ajustes)");
+    else { setStatus("online","Sincronizado en tiempo real"); if(hasLocalEdits) save(true); }   // reintenta si había ediciones sin guardar
+  }
 }
 // si llega la clave en el enlace (#clave=...), guardarla y limpiar la URL
 (function(){
@@ -781,6 +811,13 @@ function setStatus(state, text){
   const el=document.getElementById("status");
   el.className="status "+state;
   document.getElementById("statusText").textContent=text;
+  // El banner rojo solo cubre fallas de GUARDADO (clave faltante/incorrecta, error
+  // al escribir) — no estados normales de conexión ("Conectando…", sin internet).
+  const banner=document.getElementById("saveFailBanner");
+  if(!banner) return;
+  const esFallaDeGuardado = state==="error" && !COLLAB && /clave|guardar/i.test(text);
+  if(esFallaDeGuardado){ banner.hidden=false; document.getElementById("saveFailMsg").textContent="— "+text; }
+  else banner.hidden=true;
 }
 
 function startApp(){
@@ -813,7 +850,11 @@ function connectSupabase(){
       if(hasLocalEdits || localNewer){ save(true); }
       else { const m1=migrateIfNeeded(raw), m2=normalizePhases(raw), m3=migrateBudget(raw), m4=migrateGroups(raw); onRemote(raw); if(m1||m2||m3||m4) save(true); }
     } else pushFull();
-    ready=true; setStatus("online","Sincronizado en tiempo real");
+    ready=true;
+    // Aviso proactivo: si este dispositivo no tiene la clave, avisa desde ya
+    // (antes de que alguien edite algo y el guardado falle en silencio).
+    if(!COLLAB && !writeKey()) setStatus("error","Falta la clave de sincronización (Ajustes)");
+    else setStatus("online","Sincronizado en tiempo real");
     applyAllConfirmations();
   });
 
@@ -826,7 +867,12 @@ function connectSupabase(){
       onRemote(row.data);
     })
     .subscribe(status=>{
-      if(status==="SUBSCRIBED" && ready) setStatus("online","Sincronizado en tiempo real");
+      if(status==="SUBSCRIBED" && ready){
+        // No pisar el aviso de "falta la clave" con un falso "todo bien":
+        // la conexión en tiempo real puede estar sana aunque el guardado no lo esté.
+        if(!COLLAB && !writeKey()) setStatus("error","Falta la clave de sincronización (Ajustes)");
+        else setStatus("online","Sincronizado en tiempo real");
+      }
       if(status==="CHANNEL_ERROR"||status==="TIMED_OUT") setStatus("error","Reconectando…");
     });
 
@@ -1392,37 +1438,37 @@ function renderBudgetChart(){
     </div>`;
 }
 
-/* ---------- Gastos de la casa (separado a propósito del presupuesto de la boda) ---------- */
-function addHouse(){ if(!S.houseExpenses) S.houseExpenses=[]; S.houseExpenses.push({id:uid(),category:"",item:"",monto:0,abonado:0,donado:false}); save(); renderHouse(); }
+/* ---------- Gastos de la casa (separado a propósito del presupuesto de la boda) ----------
+   Sin "Donado": en su lugar cada renglón tiene un switch "Incluir" — para meter
+   todo lo que se les ocurra sin borrar nada, y decidir después qué cuenta en
+   los totales mientras deciden prioridades. */
+function addHouse(){ if(!S.houseExpenses) S.houseExpenses=[]; S.houseExpenses.push({id:uid(),category:"",item:"",monto:0,abonado:0,incluido:true}); save(); renderHouse(); }
 function renderHouse(){
   const list=S.houseExpenses||[];
   const tb=document.querySelector("#houseTbl tbody");
   tb.innerHTML=list.length?list.map(x=>{
-    const monto=+x.monto||0, donado=!!x.donado, abon=donado?monto:(+x.abonado||0);
-    const pagado=!donado && monto>0 && abon>=monto;
-    const cls=donado?"row-donado":(pagado?"row-pagado":"");
+    const monto=+x.monto||0, abonado=+x.abonado||0, incluido=x.incluido!==false;
+    const pagado=monto>0 && abonado>=monto;
+    const cls=!incluido?"row-excluido":(pagado?"row-pagado":"");
     return `<tr class="${cls}">
       <td><input value="${esc(x.category)}" placeholder="Categoría" onchange="upd('houseExpenses','${x.id}','category',this.value)"></td>
       <td><input value="${esc(x.item)}" placeholder="Concepto" onchange="upd('houseExpenses','${x.id}','item',this.value)"></td>
       <td><input type="number" min="0" value="${monto}" onchange="upd('houseExpenses','${x.id}','monto',this.value);renderHouse()"></td>
-      <td>${donado
-        ? `<span class="abon-donado">${money(monto)} · donado</span>`
-        : `<input type="number" min="0" value="${x.abonado||0}" onchange="upd('houseExpenses','${x.id}','abonado',this.value);renderHouse()">`}</td>
-      <td style="text-align:center"><input type="checkbox" ${donado?"checked":""} title="Marcar todo el rubro como donado" onchange="upd('houseExpenses','${x.id}','donado',this.checked);renderHouse()"></td>
+      <td><input type="number" min="0" value="${abonado}" onchange="upd('houseExpenses','${x.id}','abonado',this.value);renderHouse()"></td>
+      <td style="text-align:center"><label class="toggle-sw" title="Incluir en los totales del presupuesto"><input type="checkbox" ${incluido?"checked":""} onchange="upd('houseExpenses','${x.id}','incluido',this.checked);renderHouse()"><span class="slider"></span></label></td>
       <td><button class="icon" title="Eliminar" onclick="del('houseExpenses','${x.id}');renderHouse()">🗑</button></td></tr>`;
   }).join(""):`<tr><td colspan="6"><div class="empty">Sin gastos de la casa aún.</div></td></tr>`;
 
-  const monto=list.reduce((a,x)=>a+(+x.monto||0),0);
-  const abonReal=list.reduce((a,x)=>a+(x.donado?0:(+x.abonado||0)),0);
-  const donado=list.reduce((a,x)=>a+(x.donado?(+x.monto||0):0),0);
-  const abonTotal=abonReal+donado;
+  const incluidos=list.filter(x=>x.incluido!==false);
+  const monto=incluidos.reduce((a,x)=>a+(+x.monto||0),0);
+  const abonTotal=incluidos.reduce((a,x)=>a+(+x.abonado||0),0);
   const gap=monto-abonTotal;                 // falta de la casa antes de aplicar lo que sobró de la boda
   const sobranteBoda=weddingSurplus();
   const faltaReal=gap-sobranteBoda;          // negativo = también sobra dinero después de cubrir la casa
-  document.querySelector("#houseTbl tfoot").innerHTML=`<tr><td colspan="2">Totales</td><td class="num">${money(monto)}</td><td class="num">${money(abonTotal)}</td><td colspan="2"></td></tr>`;
+  document.querySelector("#houseTbl tfoot").innerHTML=`<tr><td colspan="2">Totales (solo incluidos)</td><td class="num">${money(monto)}</td><td class="num">${money(abonTotal)}</td><td colspan="2"></td></tr>`;
   document.getElementById("houseSummary").innerHTML=`<div class="cards">
-    <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
-    <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
+    <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div><div class="meta">${incluidos.length} de ${list.length} rubros incluidos</div></div>
+    <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div></div>
     <div class="stat"><div class="k">Excedente de la boda</div><div class="v small" style="color:var(--gold-deep)">${money(sobranteBoda)}</div><div class="meta">Dinero que sobró del presupuesto de la boda</div></div>
     <div class="stat"><div class="k">${faltaReal>0?"Falta por cubrir":"Excedente"}</div><div class="v small" style="color:${faltaReal>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(faltaReal))}</div><div class="meta">ya restando el excedente de la boda</div></div>
   </div>`;
@@ -2141,7 +2187,11 @@ function renderSyncKey(){
 function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderCredit(); renderBudget(); renderHouse(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
-window.addEventListener("online",()=>{ if(ready) setStatus("online","Sincronizado en tiempo real"); });
+window.addEventListener("online",()=>{
+  if(!ready) return;
+  if(!COLLAB && !writeKey()) setStatus("error","Falta la clave de sincronización (Ajustes)");
+  else setStatus("online","Sincronizado en tiempo real");
+});
 
 /* ---------- PWA: service worker ---------- */
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }

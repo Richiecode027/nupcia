@@ -2,8 +2,9 @@
 nupcia-*.json
 respaldo-*.json
 
-# Candado de escritura: contiene la clave secreta — NO subir
+# Candado de escritura y historial: contienen la clave secreta — NO subir
 asegurar_espacios.sql
+historial_espacios.sql
 
 # Archivos temporales de carga de datos (contienen datos personales — NO subir)
 seed.js
