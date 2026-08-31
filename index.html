@@ -1352,13 +1352,16 @@ function renderBudget(){
   document.querySelector("#budgetTbl tfoot").innerHTML=`<tr><td colspan="2">Totales</td><td class="num">${money(monto)}</td><td class="num">${money(abonTotal)}</td><td colspan="2"></td></tr>`;
 
   const ahorroBruto=ahorroTotal(), deuda=creditTotal(), ahorro=ahorroNeto();
+  const porAbonar=Math.max(0,monto-abonTotal);   // lo que falta pagar en efectivo, sin restar el ahorro
   const falta=monto-abonTotal-ahorro;
   document.getElementById("budgetSummary").innerHTML = COLLAB ? `<div class="cards">
     <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
     <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
+    <div class="stat"><div class="k">Por abonar</div><div class="v small" style="color:var(--gold-deep)">${money(porAbonar)}</div><div class="meta">lo que falta pagar, sin contar el ahorro</div></div>
   </div>` : `<div class="cards">
     <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div></div>
     <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div><div class="meta">incluye ${money(donado)} donado</div></div>
+    <div class="stat"><div class="k">Por abonar</div><div class="v small" style="color:var(--gold-deep)">${money(porAbonar)}</div><div class="meta">lo que falta pagar, sin contar el ahorro</div></div>
     <div class="stat"><div class="k">Ahorro neto</div><div class="v small" style="color:var(--gold-deep)">${money(ahorro)}</div><div class="meta">${money(ahorroBruto)} ahorrado − ${money(deuda)} de tarjetas</div></div>
     <div class="stat"><div class="k">${falta>0?"Falta por cubrir":"Excedente"}</div><div class="v small" style="color:${falta>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(falta))}</div></div>
   </div>`;
@@ -1466,9 +1469,11 @@ function renderHouse(){
   const sobranteBoda=weddingSurplus();
   const faltaReal=gap-sobranteBoda;          // negativo = también sobra dinero después de cubrir la casa
   document.querySelector("#houseTbl tfoot").innerHTML=`<tr><td colspan="2">Totales (solo incluidos)</td><td class="num">${money(monto)}</td><td class="num">${money(abonTotal)}</td><td colspan="2"></td></tr>`;
+  const porAbonarCasa=Math.max(0,gap);   // lo que falta pagar en efectivo, sin restar el excedente de la boda
   document.getElementById("houseSummary").innerHTML=`<div class="cards">
     <div class="stat"><div class="k">Monto total</div><div class="v small">${money(monto)}</div><div class="meta">${incluidos.length} de ${list.length} rubros incluidos</div></div>
     <div class="stat"><div class="k">Abonado</div><div class="v small" style="color:var(--ok)">${money(abonTotal)}</div></div>
+    <div class="stat"><div class="k">Por abonar</div><div class="v small" style="color:var(--gold-deep)">${money(porAbonarCasa)}</div><div class="meta">lo que falta pagar, sin contar el excedente de la boda</div></div>
     <div class="stat"><div class="k">Excedente de la boda</div><div class="v small" style="color:var(--gold-deep)">${money(sobranteBoda)}</div><div class="meta">Dinero que sobró del presupuesto de la boda</div></div>
     <div class="stat"><div class="k">${faltaReal>0?"Falta por cubrir":"Excedente"}</div><div class="v small" style="color:${faltaReal>0?"var(--danger)":"var(--ok)"}">${money(Math.abs(faltaReal))}</div><div class="meta">ya restando el excedente de la boda</div></div>
   </div>`;
