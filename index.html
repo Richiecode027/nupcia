@@ -73,6 +73,7 @@
   button.icon{border:none; background:transparent; cursor:pointer; color:var(--muted); font-size:16px;
     padding:4px 7px; border-radius:8px; line-height:1;}
   button.icon:hover{background:var(--blush); color:var(--danger)}
+  button.icon:disabled{opacity:.3; cursor:default; pointer-events:none}
 
   .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px}
   .stat{background:linear-gradient(160deg,#fff,#fbf7f4); border:1px solid var(--line); border-radius:14px; padding:16px;}
@@ -205,7 +206,10 @@
   span.tl-time{border-color:transparent; background:var(--bg)}
   .tl-row input:focus{outline:none; border-color:var(--sage); background:#fff}
   .tl-children{margin:0 0 8px 30px; padding-left:14px; border-left:2px solid var(--line)}
-  .tl-child{display:flex; align-items:center; gap:6px; padding:2px 0}
+  .tl-child{display:flex; align-items:center; gap:4px; padding:2px 0; background:#fff; border-radius:7px}
+  .tl-child.dragging{box-shadow:0 6px 16px rgba(80,60,50,.22); background:var(--bg)}
+  .tl-drag-handle{flex:none; color:var(--muted); font-size:15px; padding:2px 5px; cursor:grab; touch-action:none; user-select:none}
+  .tl-drag-handle:active{cursor:grabbing; color:var(--sage)}
   .tl-child::before{content:"–"; color:var(--muted); font-size:13px}
   .tl-child .tl-child-act{flex:1; border:1px solid transparent; background:transparent; font-family:inherit; font-size:13px; padding:5px 8px; border-radius:7px; color:var(--muted)}
   .tl-child input.tl-child-act:focus{outline:none; border-color:var(--sage); background:#fff; color:var(--ink)}
@@ -2080,7 +2084,8 @@ function renderSchedule(){
         ${kidsHtml}
       </div>`;
     }
-    const kidsHtml=kids.map(c=>`<div class="tl-child">
+    const kidsHtml=kids.map(c=>`<div class="tl-child" data-child-id="${c.id}">
+      <span class="tl-drag-handle" title="Arrastra para reordenar" onpointerdown="childDragStart(event,'${s.id}','${c.id}')">⠿</span>
       <input class="tl-child-act" value="${esc(c.text)}" placeholder="Punto…" onchange="updScheduleChild('${s.id}','${c.id}',this.value)">
       <button class="icon" title="Eliminar" onclick="delScheduleChild('${s.id}','${c.id}')">🗑</button>
     </div>`).join("");
@@ -2111,6 +2116,72 @@ function delScheduleChild(parentId,childId){
   const s=(S.schedule||[]).find(x=>x.id===parentId); if(!s||!s.children) return;
   s.children=s.children.filter(x=>x.id!==childId);
   save(); renderSchedule();
+}
+// Arrastrar para reordenar puntos — Pointer Events funciona igual con mouse (clic)
+// y con el dedo en el celular (mantener presionado el ⠿ y mover), sin necesitar
+// una librería aparte.
+let childDrag=null;
+function childDragStart(e,parentId,childId){
+  e.preventDefault();
+  const handle=e.currentTarget;
+  const row=handle.closest(".tl-child");
+  const container=row.parentElement;
+  const rows=[...container.querySelectorAll(".tl-child")];
+  const fromIndex=rows.indexOf(row);
+  childDrag={
+    parentId, handle, row, rows,
+    order: rows.map(r=>r.dataset.childId),
+    fromIndex, currentIndex: fromIndex,
+    startY: e.clientY,
+    rowHeight: row.getBoundingClientRect().height
+  };
+  row.classList.add("dragging");
+  row.style.position="relative"; row.style.zIndex="50";
+  try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+  handle.addEventListener("pointermove", childDragMove);
+  handle.addEventListener("pointerup", childDragEnd, {once:true});
+  handle.addEventListener("pointercancel", childDragEnd, {once:true});
+}
+function childDragMove(e){
+  if(!childDrag) return;
+  const {row, rows, order, fromIndex, startY, rowHeight}=childDrag;
+  const deltaY=e.clientY-startY;
+  row.style.transform=`translateY(${deltaY}px)`;   // la fila sigue al dedo/cursor de inmediato
+
+  let newIndex=fromIndex+Math.round(deltaY/rowHeight);
+  newIndex=Math.max(0, Math.min(rows.length-1, newIndex));
+  if(newIndex===childDrag.currentIndex) return;
+  childDrag.currentIndex=newIndex;
+
+  // abre/cierra el espacio en las demás filas con una animación corta
+  rows.forEach(r=>{
+    if(r===row) return;
+    const orig=order.indexOf(r.dataset.childId);
+    let offset=0;
+    if(orig>fromIndex && orig<=newIndex) offset=-rowHeight;
+    else if(orig<fromIndex && orig>=newIndex) offset=rowHeight;
+    r.style.transition="transform .15s";
+    r.style.transform=offset?`translateY(${offset}px)`:"";
+  });
+}
+function childDragEnd(e){
+  if(!childDrag) return;
+  const {parentId, handle, row, rows, order, fromIndex, currentIndex}=childDrag;
+  handle.removeEventListener("pointermove", childDragMove);
+  row.classList.remove("dragging");
+  row.style.transform=""; row.style.position=""; row.style.zIndex="";
+  rows.forEach(r=>{ r.style.transition=""; r.style.transform=""; });
+
+  const s=(S.schedule||[]).find(x=>x.id===parentId);
+  if(s && s.children && currentIndex!==fromIndex){
+    const ids=order.slice();
+    const [movedId]=ids.splice(fromIndex,1);
+    ids.splice(currentIndex,0,movedId);
+    s.children.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));
+    save();
+  }
+  childDrag=null;
+  renderSchedule();
 }
 
 /* ---------- PIN de acceso ---------- */
