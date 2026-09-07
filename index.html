@@ -609,7 +609,7 @@
 
     <section class="block">
       <div class="sec-head"><div><h2>👥 Enlace para colaboradores</h2>
-        <div class="desc">Es el mismo para todos los que ayuden. Solo ven Lista de invitados, Mesas y Cronograma — sin poder editar nada.</div></div></div>
+        <div class="desc">Es el mismo para todos los que ayuden. Solo ven Lista de invitados y Cronograma — sin poder editar nada.</div></div></div>
       <div class="share-link">
         <input id="collabLink" readonly onclick="this.select()">
         <button class="btn primary" onclick="copyCollabLink()">Copiar enlace</button>
@@ -787,7 +787,7 @@ function setWriteKey(v){
    su propio enlace de colaborador). Solo lectura: sin inputs editables, sin
    botones de agregar/eliminar/arrastrar, sin la sección de Ahorro. */
 const COLLAB_STORE="nupcia_collab_view";
-const COLLAB_TABS=["listainv","mesas","cronograma"];
+const COLLAB_TABS=["listainv","cronograma"];
 (function(){
   const p=new URLSearchParams(location.search);
   const v=p.get("vista");
@@ -2104,8 +2104,11 @@ function addSchedule(){ if(!S.schedule) S.schedule=[]; S.schedule.push({id:uid()
 function addScheduleChild(parentId){
   const s=(S.schedule||[]).find(x=>x.id===parentId); if(!s) return;
   if(!s.children) s.children=[];
-  s.children.push({id:uid(),text:""});
+  const child={id:uid(),text:""};
+  s.children.push(child);
   save(); renderSchedule();
+  const input=document.querySelector(`.tl-child[data-child-id="${child.id}"] .tl-child-act`);
+  if(input) input.focus();
 }
 function updScheduleChild(parentId,childId,val){
   const s=(S.schedule||[]).find(x=>x.id===parentId); if(!s||!s.children) return;
