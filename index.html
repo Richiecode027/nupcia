@@ -147,6 +147,12 @@
   .share-link input{flex:1; min-width:220px; border:1px solid var(--line); border-radius:10px; padding:9px 11px;
     font-family:inherit; font-size:13px; color:var(--muted); background:#fbf7f4}
 
+  .game-row{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    padding:12px 0; border-bottom:1px solid var(--line)}
+  .game-row:last-child{border-bottom:none}
+  .game-info{font-size:14px}
+  .game-actions{display:flex; gap:8px; flex:none}
+
   /* Onboarding overlay */
   .overlay{position:fixed; inset:0; z-index:200; background:linear-gradient(135deg,var(--blush),var(--blush-deep));
     display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:30px 16px;}
@@ -627,6 +633,12 @@
         <button class="btn primary" onclick="copyCollabLink()">Copiar enlace</button>
         <button class="btn" onclick="shareCollabWhatsapp()">Enviar por WhatsApp</button>
       </div>
+    </section>
+
+    <section class="block">
+      <div class="sec-head"><div><h2>🎮 Juego</h2>
+        <div class="desc">Módulos del juego para el día del evento — quién entra a cada uno</div></div></div>
+      <div id="gameLinksBox"></div>
     </section>
 
     <section class="block">
@@ -1199,8 +1211,34 @@ function copyCollabLink(){
   });
 }
 function shareCollabWhatsapp(){
-  const txt="💍 Te comparto el acceso al presupuesto, invitados, mesas y cronograma de nuestra boda:\n"+collabUrl();
+  const txt="💍 Te comparto el acceso a la lista de invitados y el cronograma de nuestra boda:\n"+collabUrl();
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");
+}
+
+/* ---------- Módulos del juego para la boda ---------- */
+const GAME_LINKS=[
+  {label:"El juego",       sub:"",            url:"https://julissa-y-ricardo.com/juego/",              quien:"Los invitados"},
+  {label:"Pantalla",       sub:"proyector",   url:"https://julissa-y-ricardo.com/juego/pantalla.html", quien:"La laptop del cañón"},
+  {label:"Control",        sub:"operador",    url:"https://julissa-y-ricardo.com/juego/control.html",  quien:"El amigo designado"},
+  {label:"Administración", sub:"",            url:"https://julissa-y-ricardo.com/juego/admin.html",    quien:"Ustedes dos"},
+  {label:"Recuerdo",       sub:"post-boda",   url:"https://julissa-y-ricardo.com/juego/recuerdo.html", quien:"Ustedes dos"}
+];
+function copyGameLink(url){
+  navigator.clipboard.writeText(url).then(()=>toast("Enlace copiado ✓"),()=>{ prompt("Copia el enlace:", url); });
+}
+function renderGameLinks(){
+  const el=document.getElementById("gameLinksBox"); if(!el) return;
+  el.innerHTML = GAME_LINKS.map(g=>`
+    <div class="game-row">
+      <div class="game-info">
+        <b>${esc(g.label)}</b>${g.sub?` <span class="muted">(${esc(g.sub)})</span>`:""}
+        <div class="muted" style="font-size:12px; margin-top:2px">👤 ${esc(g.quien)}</div>
+      </div>
+      <div class="game-actions">
+        <button class="btn" onclick="window.open('${g.url}','_blank')">Abrir</button>
+        <button class="btn primary" onclick="copyGameLink('${g.url}')">Copiar</button>
+      </div>
+    </div>`).join("");
 }
 function leaveSpace(){
 }
@@ -2277,7 +2315,7 @@ function renderSyncKey(){
 }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderCredit(); renderBudget(); renderHouse(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); maybePinGate(); }
+function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderCredit(); renderBudget(); renderHouse(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); renderGameLinks(); maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{
