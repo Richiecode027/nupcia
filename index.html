@@ -1136,8 +1136,43 @@ function isEditing(){
   const a=document.activeElement;
   return a && (a.tagName==="INPUT"||a.tagName==="TEXTAREA"||a.tagName==="SELECT") && a.closest(".wrap");
 }
+// Combina el Cronograma local con el que llega de la nube en vez de reemplazarlo
+// entero: si dos personas editan casi al mismo tiempo, quien guarda un instante
+// después ya no borra los momentos/puntos que la otra persona acababa de agregar.
+// (No resuelve texto editado en el MISMO punto a la vez — eso sigue siendo
+// "el último que guarda gana" — pero evita que puntos completos desaparezcan.)
+function mergeSchedule(local, remote){
+  if(!Array.isArray(local) || !local.length) return remote;
+  if(!Array.isArray(remote)) return local;
+  const byId={};
+  remote.forEach(m=>{ byId[m.id]=JSON.parse(JSON.stringify(m)); });
+  local.forEach(m=>{ if(!byId[m.id]) byId[m.id]=JSON.parse(JSON.stringify(m)); });
+  local.forEach(lm=>{
+    const rm=byId[lm.id]; if(!rm) return;
+    const rKids=Array.isArray(rm.children)?rm.children:[];
+    const lKids=Array.isArray(lm.children)?lm.children:[];
+    const kidIds=new Set(rKids.map(k=>k.id));
+    rm.children=rKids.concat(lKids.filter(k=>!kidIds.has(k.id)));
+  });
+  const order=remote.map(m=>m.id);
+  local.forEach(m=>{ if(!order.includes(m.id)) order.push(m.id); });
+  return order.map(id=>byId[id]);
+}
+// Mismo criterio que mergeSchedule, para listas planas (sin anidar): Tareas,
+// Invitados y todo lo de Presupuesto. Un elemento agregado localmente que la
+// nube todavía no tiene no se pierde por una colisión de guardado.
+function mergeList(local, remote){
+  if(!Array.isArray(local) || !local.length) return remote;
+  if(!Array.isArray(remote)) return local;
+  const ids=new Set(remote.map(x=>x.id));
+  return remote.concat(local.filter(x=>x && !ids.has(x.id)));
+}
 function onRemote(data){
   maybeSnapshot();   // copia del estado actual antes de reemplazarlo
+  if(Array.isArray(data.schedule)) data.schedule=mergeSchedule(S.schedule, data.schedule);
+  ["tasks","guests","budget","savings","creditCards","houseExpenses"].forEach(k=>{
+    if(Array.isArray(data[k])) data[k]=mergeList(S[k], data[k]);
+  });
   applyingRemote=true;
   S=Object.assign(defaults(), data);
   renderAll();
