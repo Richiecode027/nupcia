@@ -74,6 +74,8 @@
     padding:4px 7px; border-radius:8px; line-height:1;}
   button.icon:hover{background:var(--blush); color:var(--danger)}
   button.icon:disabled{opacity:.3; cursor:default; pointer-events:none}
+  button.icon.tl-del{color:#dca79b; opacity:.55; font-size:12px}
+  button.icon.tl-del:hover{background:#f6e9e5; color:#c07d6c; opacity:1}
 
   .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px}
   .stat{background:linear-gradient(160deg,#fff,#fbf7f4); border:1px solid var(--line); border-radius:14px; padding:16px;}
@@ -203,6 +205,16 @@
   .tl-row{display:flex; align-items:center; gap:10px; padding:8px 0}
   .tl-row .tl-time{display:inline-block; width:110px; border:1px solid var(--line); border-radius:8px; padding:7px 9px; box-sizing:border-box; font-family:inherit; font-size:14px; font-weight:600; color:var(--gold-deep)}
   .tl-row .tl-act{flex:1; border:1px solid transparent; background:transparent; font-family:Georgia,serif; font-weight:700; font-size:16px; padding:7px 9px; border-radius:8px; color:var(--ink)}
+  /* Input que crece/encoge según el texto, para que el botón de eliminar quede
+     pegado justo después de lo escrito (truco de grid con un ::after invisible
+     que mide el ancho del texto real). */
+  .autogrow{display:inline-grid; align-items:center; max-width:100%}
+  .autogrow::after{content:attr(data-value) " "; visibility:hidden; white-space:pre; grid-area:1/1; font:inherit; padding:7px 9px}
+  .autogrow input{grid-area:1/1; width:100%; min-width:0}
+  .autogrow.tl-act-wrap{min-width:170px}
+  .autogrow.tl-act-wrap::after{font-family:Georgia,serif; font-weight:700; font-size:16px}
+  .autogrow.tl-child-wrap{min-width:80px}
+  .autogrow.tl-child-wrap::after{font-size:13px; padding:5px 8px}
   span.tl-time{border-color:transparent; background:var(--bg)}
   .tl-row input:focus{outline:none; border-color:var(--sage); background:#fff}
   .tl-children{margin:0 0 8px 30px; padding-left:14px; border-left:2px solid var(--line)}
@@ -2086,14 +2098,16 @@ function renderSchedule(){
     }
     const kidsHtml=kids.map(c=>`<div class="tl-child" data-child-id="${c.id}">
       <span class="tl-drag-handle" title="Arrastra para reordenar" onpointerdown="childDragStart(event,'${s.id}','${c.id}')">⠿</span>
-      <input class="tl-child-act" value="${esc(c.text)}" placeholder="Punto…" onchange="updScheduleChild('${s.id}','${c.id}',this.value)">
-      <button class="icon" title="Eliminar" onclick="delScheduleChild('${s.id}','${c.id}')">🗑</button>
+      <span class="autogrow tl-child-wrap" data-value="${esc(c.text)}"><input class="tl-child-act" value="${esc(c.text)}" placeholder="Punto…"
+        oninput="this.parentElement.dataset.value=this.value" onchange="updScheduleChild('${s.id}','${c.id}',this.value)"></span>
+      <button class="icon tl-del" title="Eliminar" onclick="delScheduleChild('${s.id}','${c.id}')">✕</button>
     </div>`).join("");
     return `<div class="tl-group">
       <div class="tl-row">
         <input class="tl-time" value="${esc(s.time)}" placeholder="Hora" onchange="upd('schedule','${s.id}','time',this.value)">
-        <input class="tl-act" value="${esc(s.activity)}" placeholder="¿Qué pasa a esta hora?" onchange="upd('schedule','${s.id}','activity',this.value)">
-        <button class="icon" title="Eliminar" onclick="del('schedule','${s.id}');renderSchedule()">🗑</button>
+        <span class="autogrow tl-act-wrap" data-value="${esc(s.activity)}"><input class="tl-act" value="${esc(s.activity)}" placeholder="¿Qué pasa a esta hora?"
+          oninput="this.parentElement.dataset.value=this.value" onchange="upd('schedule','${s.id}','activity',this.value)"></span>
+        <button class="icon tl-del" title="Eliminar" onclick="del('schedule','${s.id}');renderSchedule()">✕</button>
       </div>
       ${kidsHtml}
       <button class="tl-addchild" onclick="addScheduleChild('${s.id}')">+ Agregar punto</button>
