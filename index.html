@@ -533,7 +533,7 @@
   <div class="panel" id="tab-mesas">
     <section class="block">
       <div class="sec-head">
-        <div><h2>Acomodo de mesas</h2><div class="desc">Cada confirmación sienta sola a sus invitados en una mesa de su grupo. Arrastra para ajustar, o usa «Reagrupar» para reacomodar limpio cuando ya confirmaron todos.</div></div>
+        <div><h2>Acomodo de mesas</h2><div class="desc" id="mesasDesc">Cada confirmación sienta sola a sus invitados en una mesa de su grupo. Arrastra para ajustar, o usa «Reagrupar» para reacomodar limpio cuando ya confirmaron todos.</div></div>
         <div class="toolbar">
           <button class="btn" id="viewToggle" onclick="toggleMesaView()">📋 Ver como lista</button>
           <button class="btn" onclick="printMesas()">🖨 Imprimir / PDF</button>
@@ -627,7 +627,7 @@
 
     <section class="block">
       <div class="sec-head"><div><h2>👥 Enlace para colaboradores</h2>
-        <div class="desc">Es el mismo para todos los que ayuden. Solo ven Lista de invitados y Cronograma — sin poder editar nada.</div></div></div>
+        <div class="desc">Es el mismo para todos los que ayuden. Solo ven Lista de invitados, Mesas y Cronograma — sin poder editar nada.</div></div></div>
       <div class="share-link">
         <input id="collabLink" readonly onclick="this.select()">
         <button class="btn primary" onclick="copyCollabLink()">Copiar enlace</button>
@@ -811,7 +811,7 @@ function setWriteKey(v){
    su propio enlace de colaborador). Solo lectura: sin inputs editables, sin
    botones de agregar/eliminar/arrastrar, sin la sección de Ahorro. */
 const COLLAB_STORE="nupcia_collab_view";
-const COLLAB_TABS=["listainv","cronograma"];
+const COLLAB_TABS=["listainv","mesas","cronograma"];
 (function(){
   const p=new URLSearchParams(location.search);
   const v=p.get("vista");
@@ -832,6 +832,7 @@ function applyCollabView(){
   const viewBar=document.getElementById("budgetViewBar"); if(viewBar) viewBar.style.display="none";
   ["addTableBtn","autoArrangeBtn","addScheduleBtn"].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display="none"; });
   const poolHint=document.getElementById("poolHint"); if(poolHint) poolHint.textContent="";
+  const mesasDesc=document.getElementById("mesasDesc"); if(mesasDesc) mesasDesc.textContent="Cómo quedan sentados los invitados en cada mesa (solo vista).";
   switchTab("listainv");
 }
 
@@ -1069,10 +1070,23 @@ function applyConfirmation(c){
   }
   return changed;
 }
+// El grupo de cada persona confirmada es el de SU invitación. Las personas se
+// crean al confirmar, con el grupo que la invitación tuviera en ese momento;
+// si el grupo se asigna o cambia después, hay que propagarlo a ellas.
+function syncPeopleGroups(){
+  let changed=false;
+  (S.people||[]).forEach(p=>{
+    if(!p.invId) return;
+    const inv=(S.guests||[]).find(g=>g.id===p.invId);
+    if(inv && (inv.group||"")!==(p.group||"")){ p.group=inv.group||""; changed=true; }
+  });
+  return changed;
+}
 function applyAllConfirmations(){
   if(!ready) return false;   // NUNCA aplicar sobre el caché local antes de cargar los datos reales
   let changed=false;
   Object.keys(CONF).forEach(k=>{ if(applyConfirmation(CONF[k])) changed=true; });
+  if(syncPeopleGroups()) changed=true;
   if(changed) save();
   return changed;
 }
@@ -1246,7 +1260,7 @@ function copyCollabLink(){
   });
 }
 function shareCollabWhatsapp(){
-  const txt="💍 Te comparto el acceso a la lista de invitados y el cronograma de nuestra boda:\n"+collabUrl();
+  const txt="💍 Te comparto el acceso a la lista de invitados, las mesas y el cronograma de nuestra boda:\n"+collabUrl();
   window.open("https://wa.me/?text="+encodeURIComponent(txt),"_blank");
 }
 
@@ -2299,6 +2313,7 @@ function tryPin(){
 function upd(list,id,field,val){
   const it=S[list].find(x=>x.id===id); if(!it) return;
   it[field]=["count","monto","abonado","amount","cost"].includes(field)?(+val||0):val;
+  if(list==="guests" && field==="group"){ syncPeopleGroups(); renderPeopleList(); renderMesas(); }
   save(); renderHeader(); renderDash();
 }
 function del(list,id){
