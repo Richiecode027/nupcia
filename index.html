@@ -185,6 +185,12 @@
   .filters select{border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-family:inherit; font-size:13.5px; cursor:pointer; background:#fff}
   .filters .count-lbl{font-size:13px; color:var(--muted); margin-left:auto}
 
+  .add-person{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; padding:10px; background:var(--blush); border:1px solid var(--line); border-radius:12px}
+  .add-person input{flex:2 1 200px; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-family:inherit; font-size:14px; min-width:0}
+  .add-person select{flex:1 1 170px; border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-family:inherit; font-size:13.5px; background:#fff; min-width:0}
+  .pl-group{width:100%; min-width:190px; border:1px solid var(--line); border-radius:8px; padding:5px 6px; font-family:inherit; font-size:13px; background:#fff}
+  .tag-manual{font-size:10.5px; background:#eaf0ea; color:var(--sage); border-radius:20px; padding:1px 8px; margin-left:6px; font-weight:600}
+
   /* Mesas */
   .mesas-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:16px}
   .mesa{border:2px dashed var(--line); border-radius:14px; padding:14px; background:#fff; transition:.15s; min-height:120px}
@@ -545,7 +551,13 @@
   <div class="panel" id="tab-listainv">
     <section class="block">
       <div class="sec-head">
-        <div><h2>Lista de invitados</h2><div class="desc">Cada persona ya confirmada, con su grupo y de qué invitación viene</div></div>
+        <div><h2>Lista de invitados</h2><div class="desc">Cada persona ya confirmada, con su grupo y de qué invitación viene. También puedes agregar personas a mano.</div></div>
+      </div>
+      <div class="add-person edit-only">
+        <input id="apName" placeholder="＋ Nombre de la persona a agregar" onkeydown="if(event.key==='Enter')addPerson()">
+        <select id="apInv" onchange="apInvChanged()" title="Si la persona viene con una invitación, se sugiere su grupo (puedes cambiarlo) y se mueve con esa familia"></select>
+        <select id="apGroup"></select>
+        <button class="btn primary" onclick="addPerson()">Agregar</button>
       </div>
       <div class="filters">
         <input class="search" id="plSearch" placeholder="🔍 Buscar por nombre…" oninput="renderPeopleList()">
@@ -558,6 +570,7 @@
             <th style="cursor:pointer" onclick="setPlSort('name')" id="plThName">Nombre</th>
             <th style="cursor:pointer" onclick="setPlSort('group')" id="plThGroup">Grupo</th>
             <th style="cursor:pointer" onclick="setPlSort('inv')" id="plThInv">Invitación</th>
+            <th class="edit-only"></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -1112,7 +1125,7 @@ function applyConfirmation(c){
     const keep=new Set(attendees);
     // quita personas de esta invitación que ya no asisten (si editaron su RSVP)
     const before=S.people.length;
-    S.people=S.people.filter(p=> p.invId!==inv.id || keep.has(p.name));
+    S.people=S.people.filter(p=> p.invId!==inv.id || keep.has(p.name) || p.manual);
     if(S.people.length!==before) changed=true;
     // crea a los que faltan…
     attendees.forEach(nm=>{
@@ -1126,7 +1139,7 @@ function applyConfirmation(c){
     // No pisamos inv.count (total de pases asignados) para no romper rsvp_lookup
   } else {
     const before=S.people.length;
-    S.people=S.people.filter(p=>p.invId!==inv.id);
+    S.people=S.people.filter(p=>p.invId!==inv.id || p.manual);
     if(S.people.length!==before) changed=true;
     if(inv.rsvp!=="no"){ inv.rsvp="no"; changed=true; }
   }
@@ -1138,7 +1151,7 @@ function applyConfirmation(c){
 function syncPeopleGroups(){
   let changed=false;
   (S.people||[]).forEach(p=>{
-    if(!p.invId) return;
+    if(!p.invId || p.groupCustom) return;
     const inv=(S.guests||[]).find(g=>g.id===p.invId);
     if(inv && (inv.group||"")!==(p.group||"")){ p.group=inv.group||""; changed=true; }
   });
@@ -1967,7 +1980,56 @@ function setPlSort(field){
   if(plSort===field) plSortDir=-plSortDir; else { plSort=field; plSortDir=1; }
   renderPeopleList();
 }
+// Alta manual de personas (no vienen de una confirmación web). Se marcan con manual:true
+// para que un cambio de RSVP de su invitación no las borre. Quedan en «Sin asignar» de Mesas.
+function apFillSelects(){
+  const inv=document.getElementById("apInv"), gr=document.getElementById("apGroup"); if(!inv||!gr) return;
+  const cur=inv.value, curG=gr.value;
+  inv.innerHTML='<option value="">Sin invitación (persona suelta)</option>'+(S.guests||[]).slice().sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"es")).map(g=>`<option value="${g.id}">${esc(g.name||"(sin nombre)")}</option>`).join("");
+  inv.value=(S.guests||[]).some(g=>g.id===cur)?cur:"";
+  gr.innerHTML='<option value="">— Grupo —</option>'+GROUPS.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join("");
+  gr.value=curG;
+}
+function apInvChanged(){
+  const inv=(S.guests||[]).find(g=>g.id===document.getElementById("apInv").value);
+  const gr=document.getElementById("apGroup");
+  if(inv) gr.value=inv.group||"";   // sugerido: el de la invitación (se puede cambiar)
+}
+function addPerson(){
+  const nameEl=document.getElementById("apName");
+  const name=normalizeName(String(nameEl.value||"").trim());
+  if(!name){ toast("Escribe el nombre"); nameEl.focus(); return; }
+  const inv=(S.guests||[]).find(g=>g.id===document.getElementById("apInv").value);
+  const group=document.getElementById("apGroup").value;
+  if(!group){ toast("Elige el grupo"); return; }
+  S.people=S.people||[];
+  const dup=S.people.some(p=>searchNorm(p.name)===searchNorm(name));
+  if(dup && !confirm("Ya hay alguien llamado «"+name+"» en la lista. ¿Agregarlo de todos modos?")) return;
+  const np={id:uid(), name, group, count:1, table:"", invId:inv?inv.id:"", manual:true};
+  if(inv && (inv.group||"")!==group) np.groupCustom=true;
+  S.people.push(np);
+  save(); nameEl.value=""; nameEl.focus();
+  renderPeopleList(); renderMesas(); renderGuests(); renderDash();
+  toast("✓ "+name+" agregado(a) — queda en «Sin asignar» de Mesas");
+}
+// Cambia el grupo de UNA persona. Si viene de una invitación y el grupo difiere del de
+// esa invitación, se marca como personalizado para que la sincronización no lo revierta.
+function setPersonGroup(id,group){
+  const p=(S.people||[]).find(x=>x.id===id); if(!p) return;
+  p.group=group;
+  const inv=p.invId?(S.guests||[]).find(g=>g.id===p.invId):null;
+  if(inv && (inv.group||"")!==group) p.groupCustom=true; else delete p.groupCustom;
+  save(); renderPeopleList(); renderMesas(); renderGuests();
+  toast("Grupo de "+p.name+" actualizado ✓");
+}
+function delPerson(id){
+  const p=(S.people||[]).find(x=>x.id===id); if(!p || !p.manual) return;
+  if(!confirm("¿Quitar a "+p.name+" de la lista?")) return;
+  S.people=S.people.filter(x=>x.id!==id);
+  save(); renderPeopleList(); renderMesas(); renderGuests(); renderDash();
+}
 function renderPeopleList(){
+  apFillSelects();
   const chipsEl=document.getElementById("plGroupChips");
   if(chipsEl){
     chipsEl.innerHTML = `<button class="${plGroupFilter.size===0?"active":""}" onclick="clearPlGroups()">Todos</button>`
@@ -1996,10 +2058,15 @@ function renderPeopleList(){
 
   const tb=document.querySelector("#peopleTbl tbody");
   tb.innerHTML = list.length ? list.map(p=>`<tr>
-    <td>${esc(p.name)}</td>
-    <td>${esc(p.group||"—")}</td>
+    <td>${esc(p.name)}${p.manual?'<span class="tag-manual" title="Agregada a mano">a mano</span>':""}</td>
+    <td>${COLLAB?esc(p.group||"—"):`<select class="pl-group" onchange="setPersonGroup('${p.id}',this.value)">
+        <option value="" ${!p.group?"selected":""}>— Selecciona —</option>
+        ${GROUPS.map(gr=>`<option value="${esc(gr)}" ${p.group===gr?"selected":""}>${esc(gr)}</option>`).join("")}
+        ${p.group && !GROUPS.includes(p.group)?`<option value="${esc(p.group)}" selected>${esc(p.group)}</option>`:""}
+      </select>`}${p.groupCustom?'<span class="tag-manual" title="Su grupo es distinto al de su invitación">editado</span>':""}</td>
     <td class="muted">${esc(p.invName)}</td>
-  </tr>`).join("") : `<tr><td colspan="3"><div class="empty">${people.length?"Nadie coincide con el filtro.":"Aún no hay invitados confirmados."}</div></td></tr>`;
+    <td class="edit-only" style="width:36px">${p.manual&&!COLLAB?`<button class="icon" title="Quitar de la lista" onclick="delPerson('${p.id}')">✕</button>`:""}</td>
+  </tr>`).join("") : `<tr><td colspan="4"><div class="empty">${people.length?"Nadie coincide con el filtro.":"Aún no hay invitados confirmados."}</div></td></tr>`;
 
   const lbl=document.getElementById("plCountLbl");
   if(lbl) lbl.textContent=`Mostrando ${list.length} de ${people.length}`;
