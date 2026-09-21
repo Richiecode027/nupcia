@@ -186,13 +186,13 @@
   .filters .count-lbl{font-size:13px; color:var(--muted); margin-left:auto}
 
   /* Mesas */
-  .mesas-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:16px}
+  .mesas-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-top:16px}
   .mesa{border:2px dashed var(--line); border-radius:14px; padding:14px; background:#fff; transition:.15s; min-height:120px}
   .mesa.dragover{border-color:var(--sage); background:var(--sage-light)}
   .mesa.full{border-style:solid; border-color:var(--blush-deep)}
   .mesa-head{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px}
-  .mesa-head input.mesa-name{border:none; background:transparent; font-family:Georgia,serif; font-size:16px; font-weight:600; color:var(--ink); width:100%; padding:2px 4px; border-radius:6px}
-  .mesa-head input.mesa-name:focus{outline:none; background:var(--bg)}
+  .mesa-head .mesa-name{border:none; background:transparent; font-family:Georgia,serif; font-size:16px; font-weight:600; color:var(--ink); width:100%; padding:2px 4px; border-radius:6px}
+  .mesa-head .mesa-name:focus{outline:none; background:var(--bg)}
   .mesa-cap{font-size:12px; color:var(--muted); white-space:nowrap}
   .mesa-cap.over{color:var(--danger); font-weight:700}
   .chip{display:inline-flex; align-items:center; gap:5px; background:var(--blush); border:1px solid var(--line); border-radius:20px;
@@ -311,11 +311,46 @@
   .seat-circle.over{border-color:var(--danger)}
   .seat-cname{border:none; background:transparent; text-align:center; font-family:Georgia,serif; font-weight:600; font-size:14.5px;
     color:var(--ink); width:118px; padding:2px; border-radius:6px}
+  textarea.seat-cname{resize:none; overflow:hidden; line-height:1.15; display:block; font-size:13.5px}
   .seat-cname:focus{outline:none; background:rgba(255,255,255,.7)}
   .seat-occ{font-size:12px; color:var(--muted); margin-top:3px; font-variant-numeric:tabular-nums}
   .seat-occ.over{color:var(--danger); font-weight:700}
   .seat-del{position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font-size:13px; opacity:.55}
   .seat-del:hover{opacity:1}
+  .seat-btns{position:absolute; bottom:6px; left:50%; transform:translateX(-50%); display:flex; gap:0; white-space:nowrap}
+  .seat-btns .seat-del{position:static; transform:none}
+
+  /* Mesas: secciones por grupo, archivadas, incompletas, guardado */
+  .chk{display:inline-flex; align-items:center; gap:5px; font-size:13px; color:var(--muted); cursor:pointer; white-space:nowrap}
+  .chk input{accent-color:var(--sage)}
+  .save-state{font-size:12.5px; color:var(--muted); align-self:center}
+  .save-state.ok{color:var(--ok)} .save-state.warn{color:var(--gold-deep); font-weight:600} .save-state.bad{color:var(--danger); font-weight:600}
+  .save-btn.pending{box-shadow:0 0 0 3px rgba(200,169,106,.35)}
+  .mesa-sec{margin-top:18px}
+  .mesa-sec-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px; background:var(--blush); border:1px solid var(--line);
+    border-radius:12px; cursor:pointer; user-select:none}
+  .mesa-sec-head .arrow{color:var(--gold-deep); width:14px}
+  .mesa-sec-head b{font-family:Georgia,serif; font-size:15px}
+  .mesa-sec-head .stats{font-size:12.5px; color:var(--muted); flex:1}
+  .mesa-sec-head .btn{font-size:12px; padding:4px 10px}
+  .mesa-sec.collapsed .mesa-sec-body{display:none}
+  .mesa-sec-body .mesas-grid{margin-top:12px}
+  .mesa-sec-body .seat-plano{margin-top:12px}
+  .mesa-head .mesa-name{min-width:0; font-size:15px; line-height:1.25; resize:none; overflow:hidden; display:block; flex:1}
+  .mesa-head .icon{padding:2px 4px; flex:none}
+  .mesa.incompleta{border-color:#e0a08f; background:#fffaf7}
+  .mesa.archivada{opacity:.6; background:#f4f0ec; border-style:solid}
+  .seat-circle.incompleta{border-color:#e0a08f}
+  .seat-table.archivada{opacity:.55; filter:grayscale(.5)}
+  .mesa-tag{font-size:10.5px; border-radius:20px; padding:1px 8px; font-weight:600; margin-left:4px}
+  .mesa-tag.inc{background:#fbe9e3; color:#b4604d} .mesa-tag.arch{background:#e8e2dc; color:var(--muted)} .mesa-tag.mix{background:#eaf0ea; color:var(--sage)}
+  .found-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:7px 10px; border:1px solid var(--line); border-radius:10px; margin-top:6px; background:#fff; font-size:13.5px}
+  .found-row select{border:1px solid var(--line); border-radius:8px; padding:4px 6px; font-family:inherit; font-size:12.5px; background:#fff}
+  .found-row a{color:var(--gold-deep); font-weight:600}
+  @keyframes pulseHL{0%{box-shadow:0 0 0 0 rgba(200,169,106,.9)}70%{box-shadow:0 0 0 14px rgba(200,169,106,0)}100%{box-shadow:0 0 0 0 rgba(200,169,106,0)}}
+  .pulse{animation:pulseHL 1.1s ease-out 2}
+  .opt-move{padding:4px 0; font-size:13.5px; border-bottom:1px dashed var(--line)}
+  .opt-move:last-child{border-bottom:none}
   .seat-name{position:absolute; transform:translate(-50%,-50%); background:#fff; border:1px solid var(--line); border-radius:20px;
     padding:3px 9px; font-size:11.5px; line-height:1.2; white-space:nowrap; cursor:grab; box-shadow:0 2px 7px rgba(80,60,50,.12);
     max-width:118px; overflow:hidden; text-overflow:ellipsis; transition:border-color .12s}
@@ -363,6 +398,7 @@
   <div class="syncbar">
     <span class="status connecting" id="status"><span class="dot"></span><span id="statusText">Conectando…</span></span>
     <button class="btn ghost" style="font-size:12.5px; padding:5px 12px" onclick="switchTab('ajustes')">🔗 Compartir</button>
+    <button class="btn ghost save-btn edit-only" id="hdrSaveBtn" style="font-size:12.5px; padding:5px 12px" onclick="saveNow()" title="Guarda ya en la nube y lo verifica">💾 Guardar</button>
     <button class="btn ghost" id="exitCollabBtn" style="display:none; font-size:12.5px; padding:5px 12px" onclick="exitCollabView()">🚪 Salir de esta vista</button>
   </div>
 </header>
@@ -534,17 +570,32 @@
     <section class="block">
       <div class="sec-head">
         <div><h2>Acomodo de mesas</h2><div class="desc" id="mesasDesc">Cada confirmación sienta sola a sus invitados en una mesa de su grupo. Arrastra para ajustar, o usa «Reagrupar» para reacomodar limpio cuando ya confirmaron todos.</div></div>
-        <div class="toolbar">
-          <button class="btn" id="viewToggle" onclick="toggleMesaView()">📋 Ver como lista</button>
-          <button class="btn" onclick="printMesas()">🖨 Imprimir / PDF</button>
-          <button class="btn" id="autoArrangeBtn" onclick="autoArrange()" title="Reacomoda a todos los confirmados por grupo, 10 por mesa">✨ Reagrupar por grupos</button>
-          <button class="btn primary" id="addTableBtn" onclick="addTable()">+ Agregar mesa</button>
+        <div class="toolbar edit-only">
+          <span class="save-state" id="mesaSaveState"></span>
+          <button class="btn primary save-btn" id="mesaSaveBtn" onclick="saveNow()" title="Guarda ya en la nube y lo verifica">💾 Guardar</button>
         </div>
       </div>
+      <div class="toolbar" style="margin-bottom:12px">
+        <button class="btn" id="viewToggle" onclick="toggleMesaView()">📋 Ver como lista</button>
+        <button class="btn" onclick="printMesas()">🖨 Imprimir / PDF</button>
+        <button class="btn edit-only" id="optimizeBtn" onclick="openOptimize()" title="Junta grupos chicos para usar menos mesas, sin partir familias. Te muestra una vista previa antes de cambiar nada">🧩 Agrupar por optimización de espacio</button>
+        <button class="btn edit-only" id="autoArrangeBtn" onclick="autoArrange()" title="Reacomoda a todos los confirmados por grupo (respeta las mesas archivadas)">✨ Reagrupar por grupos</button>
+        <button class="btn primary edit-only" id="addTableBtn" onclick="addTable()">+ Agregar mesa</button>
+      </div>
+      <div class="filters">
+        <input class="search" id="mesaSearch" placeholder="🔍 ¿Dónde está…? Busca a una persona" oninput="renderMesaFound()">
+        <select id="mesaGroupFilter" onchange="setMesaPref('group',this.value)"><option value="">Todos los grupos</option></select>
+        <label class="chk"><input type="checkbox" id="fLibres" onchange="setMesaPref('soloLibres',this.checked)"> Solo con lugares libres</label>
+        <label class="chk"><input type="checkbox" id="fResaltar" onchange="setMesaPref('resaltar',this.checked)"> Resaltar incompletas</label>
+        <label class="chk edit-only"><input type="checkbox" id="fArch" onchange="setMesaPref('verArch',this.checked)"> Ver archivadas</label>
+        <label class="chk edit-only"><input type="checkbox" id="fFam" onchange="setMesaPref('familia',this.checked)"> Mover familia completa</label>
+      </div>
+      <div id="mesaFound"></div>
+      <div class="muted" id="mesaSummary" style="font-size:12.5px; margin:6px 0 10px"></div>
       <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span> <span class="muted" id="poolHint" style="font-size:12px">· arrastra un nombre a una mesa</span></div>
       <div class="pool" id="mesaPool" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'')"></div>
-      <div class="mesas-grid" id="mesasGrid"></div>
-      <div class="seat-plano" id="mesaPlano"></div>
+      <div id="mesasGrid"></div>
+      <div id="mesaPlano"></div>
     </section>
   </div>
 
@@ -661,10 +712,15 @@
         <div class="field"><label>Presupuesto total ($)</label><input id="sBudget" type="number" min="0" step="100" placeholder="0"></div>
         <div class="field"><label>PIN de acceso (opcional)</label><input id="sPin" inputmode="numeric" maxlength="8" placeholder="Vacío = sin PIN"></div>
         <div class="field"><label>Cierre de confirmaciones (RSVP)</label><input id="sRsvpDeadline" type="date"></div>
+        <div class="field"><label>Lugares por mesa (máximo)</label><input id="sSeats" type="number" min="1" max="40" step="1" placeholder="10"></div>
       </div>
-      <div style="margin-top:14px"><button class="btn primary" onclick="saveSettings()">Guardar datos</button></div>
+      <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap">
+        <button class="btn primary" onclick="saveSettings()">Guardar datos</button>
+        <button class="btn" onclick="applySeatsToTables()" title="Cambia la capacidad de todas las mesas que no están archivadas">Aplicar «lugares por mesa» a todas las mesas</button>
+      </div>
       <p class="muted" style="font-size:12px; margin-top:10px">El PIN pide una clave al abrir la app. Es una protección ligera (no cifrado), suficiente para uso casual.</p>
-      <p class="muted" style="font-size:12px; margin-top:6px">⚠ El cierre de confirmaciones solo actualiza el contador y el mensaje de WhatsApp aquí en Nupcia. El sitio de invitación (donde confirman los invitados) tiene su propia fecha y se actualiza por separado — avísame si la cambias para sincronizarla ahí también.</p>
+      <p class="muted" style="font-size:12px; margin-top:6px">Esta fecha también cierra el formulario del sitio de invitación (lo lee de Supabase con rsvp_deadline). Vacío = nunca cierra.</p>
+      <p class="muted" style="font-size:12px; margin-top:6px">«Lugares por mesa» es el máximo para las mesas nuevas y para el acomodo automático. El botón lo aplica también a las mesas que ya existen (excepto las archivadas y las que ya tienen más gente que ese número).</p>
     </section>
 
     <section class="block">
@@ -729,7 +785,7 @@ function seedSchedule(){
   ];
 }
 function defaults(){
-  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:"",rsvpDeadline:"2026-08-31"}, budget:[], savings:[], creditCards:[], houseExpenses:[], guests:[], people:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
+  return {settings:{name1:"",name2:"",date:"",place:"",budget:0,pin:"",rsvpDeadline:"2026-08-31",seatsPerTable:10}, budget:[], savings:[], creditCards:[], houseExpenses:[], guests:[], people:[], vendors:[], participants:[], notes:"", tasks:seedTasks(), schedule:seedSchedule(), tables:[], _ts:0};
 }
 // Migración del presupuesto: estimado/real/pagado -> monto/abonado/donado, y caja de ahorro
 function migrateBudget(raw){
@@ -830,6 +886,7 @@ function applyCollabView(){
   const savings=document.getElementById("savingsSection"); if(savings) savings.style.display="none";
   const addBudgetBtn=document.getElementById("addBudgetBtn"); if(addBudgetBtn) addBudgetBtn.style.display="none";
   const viewBar=document.getElementById("budgetViewBar"); if(viewBar) viewBar.style.display="none";
+  document.querySelectorAll(".edit-only").forEach(el=>{ el.style.display="none"; });
   ["addTableBtn","autoArrangeBtn","addScheduleBtn"].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display="none"; });
   const poolHint=document.getElementById("poolHint"); if(poolHint) poolHint.textContent="";
   const mesasDesc=document.getElementById("mesasDesc"); if(mesasDesc) mesasDesc.textContent="Cómo quedan sentados los invitados en cada mesa (solo vista).";
@@ -1015,15 +1072,20 @@ function freeSeatsP(tid){
   const used=(S.people||[]).filter(p=>p.table===tid).length;   // cada persona = 1 lugar
   return (+t.seats||0)-used;
 }
+// Máximo de lugares por mesa (Ajustes → Lugares por mesa). Las mesas nuevas nacen con este valor.
+function seatsPerTable(){ return Math.max(1, parseInt(S.settings && S.settings.seatsPerTable,10) || 10); }
+// Una mesa "mixta" (creada al optimizar espacio) acepta a todos los grupos que la componen.
+function tableAccepts(t, group){ return t.group===group || (Array.isArray(t.groups) && t.groups.includes(group)); }
 function newGroupTable(group){
   const n=(S.tables||[]).filter(t=>t.group===group).length+1;
-  const t={id:uid(), name:tableLabel(group)+" "+n, seats:10, group:group};
+  const t={id:uid(), name:tableLabel(group)+" "+n, seats:seatsPerTable(), group:group};
   (S.tables=S.tables||[]).push(t);
   return t;
 }
+// Las mesas archivadas ya no se tocan: no reciben gente nueva.
 function seatPerson(p){
   if(!p || p.table) return false;
-  const mine=(S.tables||[]).filter(t=>t.group===p.group);
+  const mine=(S.tables||[]).filter(t=>!t.archived && tableAccepts(t,p.group));
   let target=mine.find(t=>freeSeatsP(t.id)>=1) || newGroupTable(p.group);
   p.table=target.id;
   return true;
@@ -1033,7 +1095,7 @@ function seatPerson(p){
 function seatTogether(people, group){
   const fresh=people.filter(p=>p && !p.table);
   if(!fresh.length) return false;
-  const mine=(S.tables||[]).filter(t=>t.group===group);
+  const mine=(S.tables||[]).filter(t=>!t.archived && tableAccepts(t,group));
   let target=mine.find(t=>freeSeatsP(t.id)>=fresh.length);   // ¿una mesa los recibe a todos?
   if(target){ fresh.forEach(p=>p.table=target.id); return true; }
   fresh.forEach(p=>seatPerson(p));   // si no caben juntos, llenar y desbordar
@@ -1203,31 +1265,88 @@ function pushFull(){ save(true); }
 // Envía el estado ACTUAL de S a Supabase (siempre lee S al momento de llamarse,
 // nunca una copia vieja) — se usa tanto por el debounce normal como por el
 // flush inmediato al ocultar/cerrar la pestaña.
+// Devuelve una promesa con true si la nube confirmó el guardado.
+let dirty=false, lastSavedAt=null;   // dirty = hay cambios que la nube aún no confirma
 function writeToSupabase(){
-  if(!SB) return;
+  if(!SB) return Promise.resolve(false);
   const k=writeKey();
-  if(!k){ setStatus("error","Falta la clave de sincronización (Ajustes)"); return; }
-  SB.rpc("guardar_espacio",{p_id:SPACE, p_data:clean(S), p_secret:k})
+  if(!k){ setStatus("error","Falta la clave de sincronización (Ajustes)"); updateSaveUI(); return Promise.resolve(false); }
+  const sent=S._ts;
+  return SB.rpc("guardar_espacio",{p_id:SPACE, p_data:clean(S), p_secret:k})
     .then(({data,error})=>{
-      if(error){ setStatus("error","Error al guardar"); console.error(error); return; }
+      if(error){ setStatus("error","Error al guardar"); console.error(error); updateSaveUI(); return false; }
       if(data && data.ok===false){
         setStatus("error", data.error==="clave_invalida" ? "Clave de sincronización incorrecta (Ajustes)" : "Error al guardar");
-        return;
+        updateSaveUI(); return false;
       }
+      if(S._ts===sent) dirty=false;   // si se editó algo mientras viajaba, sigue "sin guardar"
+      lastSavedAt=Date.now();
       if(ready) setStatus("online","Sincronizado en tiempo real");
-    });
+      updateSaveUI();
+      return true;
+    })
+    .catch(e=>{ console.error(e); setStatus("error","Error al guardar"); updateSaveUI(); return false; });
 }
 function save(immediate){
   if(applyingRemote) return;
-  hasLocalEdits=true;
+  hasLocalEdits=true; dirty=true;
   S._ts=Date.now(); S._by=DEVICE;
   try{ localStorage.setItem(CACHE_KEY, JSON.stringify(S)); }catch(e){}
   maybeSnapshot();
+  updateSaveUI();
   if(!SB) return;
   clearTimeout(saveT);
   if(immediate){ saveT=null; writeToSupabase(); }
   else saveT=setTimeout(()=>{ saveT=null; writeToSupabase(); }, 350);
 }
+// Estado del guardado junto a los botones "Guardar".
+function updateSaveUI(){
+  if(COLLAB) return;
+  let txt, cls;
+  if(!writeKey()){ txt="⚠ Sin clave: no se guarda en la nube"; cls="bad"; }
+  else if(dirty){ txt="● Cambios sin guardar…"; cls="warn"; }
+  else if(lastSavedAt){ txt="✓ Guardado "+new Date(lastSavedAt).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"}); cls="ok"; }
+  else { txt="✓ Al día"; cls="ok"; }
+  document.querySelectorAll(".save-state").forEach(el=>{ el.textContent=txt; el.className="save-state "+cls; });
+  document.querySelectorAll(".save-btn").forEach(b=>b.classList.toggle("pending", dirty || !writeKey()));
+}
+// Botón "Guardar": guarda YA en la nube, lo verifica leyéndolo de vuelta y deja
+// además una copia local en Ajustes → Respaldo.
+let savingNow=false;
+async function saveNow(){
+  if(COLLAB || savingNow) return;
+  if(!writeKey()){
+    setStatus("error","Falta la clave de sincronización (Ajustes)");
+    toast("⚠ No se puede guardar: falta la clave de sincronización (Ajustes)"); return;
+  }
+  savingNow=true;
+  document.querySelectorAll(".save-btn").forEach(b=>{ b.disabled=true; b.dataset.t=b.textContent; b.textContent="Guardando…"; });
+  try{
+    clearTimeout(saveT); saveT=null;
+    hasLocalEdits=true; dirty=true;
+    S._ts=Date.now(); S._by=DEVICE;
+    try{ localStorage.setItem(CACHE_KEY, JSON.stringify(S)); }catch(e){}
+    maybeSnapshot(true);
+    const sent=S._ts;
+    const ok=await writeToSupabase();
+    let verified=false;
+    if(ok){
+      try{
+        const {data}=await SB.from("espacios").select("data").eq("id",SPACE).maybeSingle();
+        verified=!!(data && data.data && (+data.data._ts||0)>=sent);
+      }catch(e){}
+    }
+    if(ok && verified) toast("✓ Guardado y verificado en la nube");
+    else if(ok) toast("Guardado, pero no pude verificarlo: revisa tu conexión");
+    else toast("⚠ NO se pudo guardar. No cierres la página; revisa el aviso rojo");
+  } finally {
+    savingNow=false;
+    document.querySelectorAll(".save-btn").forEach(b=>{ b.disabled=false; if(b.dataset.t) b.textContent=b.dataset.t; });
+    updateSaveUI();
+  }
+}
+// Si hay cambios que la nube no ha confirmado, el navegador pregunta antes de cerrar/recargar.
+window.addEventListener("beforeunload",e=>{ if(dirty && !COLLAB){ e.preventDefault(); e.returnValue=""; } });
 // Si el celular se pone en segundo plano o se cierra la pestaña con un guardado
 // pendiente (dentro de los 350ms), lo envía de inmediato para no perderlo.
 function flushPendingSave(){
@@ -1982,15 +2101,44 @@ function renderVendors(){
 }
 
 /* ---------- Mesas (acomodo visual) ---------- */
-function addTable(){ if(!S.tables) S.tables=[]; S.tables.push({id:uid(),name:"Mesa "+(S.tables.length+1),seats:10}); save(); renderMesas(); }
-// Reagrupar: re-empaca a TODOS los confirmados por grupo, 10 por mesa.
-// Pensado para usarse cuando ya confirmaron todos y se quiere un acomodo limpio.
+// Preferencias de vista: se recuerdan en este dispositivo (los filtros de grupo y
+// "solo libres" no, para no dejar mesas ocultas sin querer al volver a abrir).
+const MESA_PREFS_KEY="nupcia_mesa_prefs";
+let mesaPrefs=Object.assign({group:"",soloLibres:false,resaltar:true,verArch:false,familia:true,collapsed:{}},
+  (function(){ try{ return JSON.parse(localStorage.getItem(MESA_PREFS_KEY))||{}; }catch(e){ return {}; } })(),
+  {group:"",soloLibres:false});
+function saveMesaPrefs(){ try{ const {resaltar,verArch,familia,collapsed}=mesaPrefs; localStorage.setItem(MESA_PREFS_KEY,JSON.stringify({resaltar,verArch,familia,collapsed})); }catch(e){} }
+function setMesaPref(k,v){ mesaPrefs[k]=v; saveMesaPrefs(); renderMesas(); }
+
+function addTable(){ if(!S.tables) S.tables=[]; S.tables.push({id:uid(),name:"Mesa "+(S.tables.length+1),seats:seatsPerTable()}); save(); renderMesas(); }
+
+// Aplica «lugares por mesa» (Ajustes) a las mesas ya creadas. No toca las archivadas
+// ni las que ya tienen más gente que ese número (se avisa cuántas fueron).
+function applySeatsToTables(){
+  const n=Math.max(1,parseInt(document.getElementById("sSeats").value,10)||0);
+  if(!n){ toast("Escribe cuántos lugares por mesa"); return; }
+  const act=(S.tables||[]).filter(t=>!t.archived);
+  if(!act.length){ S.settings.seatsPerTable=n; save(); toast("Guardado: mesas nuevas con "+n+" lugares"); return; }
+  const cambiar=act.filter(t=>occCount(t)<=n && (+t.seats||0)!==n);
+  const omitidas=act.filter(t=>occCount(t)>n);
+  if(!confirm("Se pondrán "+n+" lugares a "+cambiar.length+" mesa(s)."+(omitidas.length?"\n\n"+omitidas.length+" mesa(s) ya tienen más de "+n+" personas y no se cambian.":"")+"\n\n¿Continuar?")) return;
+  S.settings.seatsPerTable=n;
+  cambiar.forEach(t=>{ t.seats=n; });
+  save(); renderMesas();
+  toast("Lugares por mesa: "+n+" ✓"+(omitidas.length?" ("+omitidas.length+" sin cambiar)":""));
+}
+function occCount(t){ return (S.people||[]).filter(p=>p.table===t.id).length; }
+
+// Reagrupar: re-empaca a los confirmados por grupo, familias completas y máx. de
+// lugares por mesa (Ajustes). Las mesas archivadas y su gente no se tocan.
 function autoArrange(){
-  const people=S.people||[];
+  const arch=(S.tables||[]).filter(t=>t.archived);
+  const archIds=new Set(arch.map(t=>t.id));
+  const people=(S.people||[]).filter(p=>!archIds.has(p.table));
   if(!people.length){ toast("Aún no hay confirmados que reagrupar"); return; }
-  if(!confirm("Reacomodará a TODOS los confirmados en mesas por grupo (10 por mesa) y reemplazará el acomodo actual.\n\n¿Continuar?")) return;
-  const CAP=10;
-  // orden de grupos para que las mesas queden ordenadas
+  const CAP=seatsPerTable();
+  if(!confirm("Reacomodará a los confirmados que NO están en mesas archivadas, en mesas por grupo ("+CAP+" por mesa), y reemplazará su acomodo actual."+(arch.length?"\n\nLas "+arch.length+" mesa(s) archivada(s) no se tocan.":"")+"\n\nAntes se guarda una copia por si quieres regresar.\n\n¿Continuar?")) return;
+  maybeSnapshot(true);
   const ORDER=GROUPS;
   const byG={};
   people.forEach(p=>{ (byG[p.group]=byG[p.group]||[]).push(p); });
@@ -2001,7 +2149,7 @@ function autoArrange(){
     const fams={};
     byG[g].forEach(p=>{ (fams[p.invId||p.id]=fams[p.invId||p.id]||[]).push(p); });
     const blocks=Object.values(fams).sort((a,b)=>b.length-a.length);
-    let idx=0;
+    let idx=arch.filter(t=>t.group===g).length;
     const bins=[];  // {table, left}
     blocks.forEach(block=>{
       let bin=bins.find(b=>b.left>=block.length);
@@ -2009,18 +2157,52 @@ function autoArrange(){
       block.forEach(p=>p.table=bin.table.id); bin.left-=block.length;
     });
   });
-  S.tables=tables;
+  S.tables=arch.concat(tables);
   save(); renderMesas(); renderGuests();
   toast(tables.length+" mesas reagrupadas ✓");
 }
 function updTable(id,field,val){ const t=S.tables.find(x=>x.id===id); if(!t) return; t[field]=field==="seats"?(+val||0):val; save(); renderMesas(); }
 function delTable(id){ if(!confirm("¿Eliminar esta mesa? Sus invitados volverán a «Sin asignar».")) return; S.tables=(S.tables||[]).filter(x=>x.id!==id); (S.people||[]).forEach(p=>{ if(p.table===id) p.table=""; }); save(); renderMesas(); }
-function assignGuest(id,tableId){ const p=(S.people||[]).find(x=>x.id===id); if(!p) return; p.table=tableId; save(); renderMesas(); }
+
+// Archivar: la mesa ya quedó lista → sale de la vista normal, no recibe gente nueva
+// y ni "Reagrupar" ni la optimización la tocan.
+function archiveTable(id,val){
+  const t=(S.tables||[]).find(x=>x.id===id); if(!t) return;
+  t.archived=!!val; save(); renderMesas();
+  toast(val?"📦 "+t.name+" archivada — ya no se toca":"📤 "+t.name+" desarchivada");
+}
+function archiveFullOf(i){
+  const key=mesaSecKeys[i];
+  const ts=(S.tables||[]).filter(t=>!t.archived && secKey(t)===key && occCount(t)>0 && freeSeatsP(t.id)<=0);
+  if(!ts.length){ toast("No hay mesas completas en este grupo"); return; }
+  ts.forEach(t=>{ t.archived=true; });
+  save(); renderMesas(); toast("📦 "+ts.length+" mesa(s) completa(s) archivada(s)");
+}
+
+// Mover gente. Con «Mover familia completa» (por defecto) se mueve toda la invitación.
+// solo=true → únicamente a esa persona (p. ej. al quitarla de la mesa con ✕).
+function movePeople(id,tableId,solo){
+  const people=S.people||[];
+  const p=people.find(x=>x.id===id); if(!p) return;
+  const t=tableId?(S.tables||[]).find(x=>x.id===tableId):null;
+  if(tableId && !t) return;
+  if(t && t.archived){ toast("Esa mesa está archivada: desarchívala para moverle gente"); return; }
+  const grupo=(!solo && mesaPrefs.familia && p.invId)?people.filter(x=>x.invId===p.invId):[p];
+  grupo.forEach(x=>{ x.table=tableId; });
+  if(t && t.group==="Mixta"){ t.groups=[...new Set([...(t.groups||[]),...grupo.map(x=>x.group).filter(Boolean)])]; }   // la mesa mixta acepta también a este grupo
+  if(t){
+    const free=freeSeatsP(t.id);
+    if(free<0) toast("⚠ "+t.name+" quedó con "+(-free)+" persona(s) de más");
+    else if(grupo.length>1) toast(grupo.length+" personas de la misma familia → "+t.name);
+  }
+  save(); renderMesas(); renderGuests();
+}
+function assignGuest(id,tableId,solo){ movePeople(id,tableId,solo); }
 
 let dragGuestId=null;
 function dragGuest(e,id){ dragGuestId=id; try{ e.dataTransfer.setData("text/plain",id); e.dataTransfer.effectAllowed="move"; }catch(_){} }
 function mesaDragOver(e,el){ e.preventDefault(); el.classList.add("dragover"); try{ e.dataTransfer.dropEffect="move"; }catch(_){} }
-function mesaDrop(e,tableId){ e.preventDefault(); const id=dragGuestId||(e.dataTransfer&&e.dataTransfer.getData("text/plain")); document.querySelectorAll(".dragover").forEach(x=>x.classList.remove("dragover")); dragGuestId=null; if(!id) return; const p=(S.people||[]).find(x=>x.id===id); if(p){ p.table=tableId; save(); renderMesas(); } }
+function mesaDrop(e,tableId){ e.preventDefault(); const id=dragGuestId||(e.dataTransfer&&e.dataTransfer.getData("text/plain")); document.querySelectorAll(".dragover").forEach(x=>x.classList.remove("dragover")); dragGuestId=null; if(!id) return; movePeople(id,tableId); }
 
 // Soltar un nombre ENCIMA de otro: lo coloca justo a su lado (mismo lugar de la mesa)
 function nameDragOver(e,el){ e.preventDefault(); e.stopPropagation(); el.classList.add("drop-here"); try{ e.dataTransfer.dropEffect="move"; }catch(_){} }
@@ -2036,21 +2218,171 @@ function nameDrop(e,targetId,el){
   const ti=arr.findIndex(g=>g.id===targetId); if(ti<0){ arr.splice(si,0,src); return; }
   src.table=arr[ti].table;        // misma mesa que el objetivo
   arr.splice(ti,0,src);           // lo inserta junto a él
-  save(); renderMesas();
+  if(mesaPrefs.familia && src.invId) arr.forEach(x=>{ if(x!==src && x.invId===src.invId) x.table=src.table; });
+  save(); renderMesas(); renderGuests();
 }
 
-function chipHtml(g,assigned){
+function chipHtml(g,assigned,locked){
   const cnt=(+g.count>1)?(" ×"+g.count):"";
-  if(COLLAB) return `<span class="chip ${assigned?"assigned":""}">${esc(g.name)}${cnt}</span>`;
-  const tables=S.tables||[];
+  if(COLLAB || locked) return `<span class="chip ${assigned?"assigned":""}">${esc(g.name)}${cnt}</span>`;
+  const tables=(S.tables||[]).filter(t=>!t.archived);
   let extra="";
-  if(assigned){ extra=`<span class="x" title="Quitar de la mesa" onclick="assignGuest('${g.id}','')">✕</span>`; }
-  else if(tables.length){ extra=`<select onchange="assignGuest('${g.id}',this.value)" onclick="event.stopPropagation()" style="border:none;background:transparent;font-size:11px;color:var(--gold-deep);cursor:pointer"><option value="">→ mesa</option>${tables.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>`; }
+  if(assigned){ extra=`<span class="x" title="Quitar de la mesa (solo a esta persona)" onclick="assignGuest('${g.id}','',true)">✕</span>`; }
+  else if(tables.length){ extra=`<select onchange="assignGuest('${g.id}',this.value)" onclick="event.stopPropagation()" style="border:none;background:transparent;font-size:11px;color:var(--gold-deep);cursor:pointer"><option value="">→ mesa</option>${tables.map(t=>`<option value="${t.id}">${esc(t.name)} (${Math.max(0,freeSeatsP(t.id))} libres)</option>`).join("")}</select>`; }
   const dropAttrs = assigned ? `ondragover="nameDragOver(event,this)" ondragleave="this.classList.remove('drop-here')" ondrop="nameDrop(event,'${g.id}',this)"` : "";
   return `<span class="chip ${assigned?"assigned":""}" draggable="true" ondragstart="dragGuest(event,'${g.id}')" ${dropAttrs}>${esc(g.name)}${cnt}${extra}</span>`;
 }
 let mesaView="plano";
 function toggleMesaView(){ mesaView = mesaView==="plano"?"lista":"plano"; renderMesas(); }
+
+/* ---------- Optimización de espacio ---------- */
+// Idea: hay más mesas de las necesarias porque cada grupo se sienta aparte y los
+// grupos chicos dejan mesas casi vacías. Se intenta VACIAR (y quitar) las mesas con
+// menos gente pasando a sus FAMILIAS COMPLETAS a otras mesas con lugar libre,
+// prefiriendo el mismo grupo, luego el mismo lado (novia/novio) y luego cualquiera.
+// Nunca parte una familia ni se pasa del máximo de la mesa; no toca archivadas.
+function sideOf(g){ g=String(g||"").toLowerCase(); return g.includes("novia")?"novia":g.includes("novio")?"novio":"otro"; }
+function famPieces(list){ const m={}; list.forEach(p=>{ const k=p.invId||p.id; (m[k]=m[k]||[]).push(p); }); return Object.values(m); }
+function famLabel(piece){
+  const g=(S.guests||[]).find(x=>x.id===piece[0].invId);
+  return (g&&g.name?g.name:piece[0].name)+(piece.length>1?" ("+piece.length+")":"");
+}
+function planOptimize(onlyTid){
+  const all=S.tables||[];
+  const tables=all.filter(t=>!t.archived);
+  const seats={}, mem={};
+  tables.forEach(t=>{ seats[t.id]=+t.seats||seatsPerTable(); mem[t.id]=[]; });
+  const unassigned=[];
+  (S.people||[]).forEach(p=>{
+    if(p.table && mem[p.table]) mem[p.table].push(p);
+    else if(!p.table || !all.some(t=>t.id===p.table)) unassigned.push(p);   // (los de mesas archivadas no participan)
+  });
+  const free=id=>seats[id]-mem[id].length;
+  const groupsAt=id=>new Set(mem[id].map(p=>p.group||""));
+  const before=tables.length;
+  const removed=[], unplaced=[];
+  const orig={}; (S.people||[]).forEach(p=>{ orig[p.id]=p.table||""; });
+  const pick=(piece,exclude)=>{
+    const g=piece[0].group||"", sd=sideOf(g);
+    let best=null, bestScore=null;
+    Object.keys(mem).forEach(id=>{
+      if(exclude===id || free(id)<piece.length) return;
+      const ga=groupsAt(id);
+      const cls = ga.size===0?1 : ga.has(g)?0 : [...ga].some(x=>sideOf(x)===sd)?2:3;   // mismo grupo · mesa vacía · mismo lado · otro
+      const score=cls*100+(free(id)-piece.length);                                     // y, a igual clase, el ajuste más justo
+      if(bestScore===null || score<bestScore){ best=id; bestScore=score; }
+    });
+    return best;
+  };
+  // 1) gente sin mesa → a donde quepa su familia
+  famPieces(unassigned).sort((a,b)=>b.length-a.length).forEach(piece=>{
+    const to=pick(piece,null);
+    if(to){ mem[to].push(...piece); }
+    else unplaced.push(famLabel(piece));
+  });
+  // 2) vaciar mesas, empezando por las que tienen menos gente
+  let changed=true;
+  while(changed){
+    changed=false;
+    const cands=Object.keys(mem).filter(id=>!onlyTid||id===onlyTid).sort((a,b)=>mem[a].length-mem[b].length);
+    for(const cand of cands){
+      const pieces=famPieces(mem[cand]).sort((a,b)=>b.length-a.length);
+      const tmp={}; Object.keys(mem).forEach(id=>{ tmp[id]=free(id); });
+      const plan=[]; let ok=true;
+      for(const piece of pieces){
+        // mismo criterio que pick(), pero sobre lugares "reservados" en esta simulación
+        const g=piece[0].group||"", sd=sideOf(g);
+        let best=null, bestScore=null;
+        Object.keys(mem).forEach(id=>{
+          if(id===cand || tmp[id]<piece.length) return;
+          const ga=groupsAt(id);
+          const cls = ga.size===0?1 : ga.has(g)?0 : [...ga].some(x=>sideOf(x)===sd)?2:3;
+          const score=cls*100+(tmp[id]-piece.length);
+          if(bestScore===null || score<bestScore){ best=id; bestScore=score; }
+        });
+        if(!best){ ok=false; break; }
+        tmp[best]-=piece.length; plan.push({piece,to:best});
+      }
+      if(!ok) continue;
+      plan.forEach(({piece,to})=>{ mem[to].push(...piece); });
+      delete mem[cand]; removed.push(cand);
+      changed=true; break;
+    }
+  }
+  // Movimientos = destino FINAL de cada persona (así no se muestran pasos intermedios
+  // hacia una mesa que luego también se elimina).
+  const moves=[], byKey={};
+  Object.keys(mem).forEach(to=>{ mem[to].forEach(p=>{
+    if((orig[p.id]||"")===to) return;
+    const key=(p.invId||p.id)+"|"+(orig[p.id]||"")+"|"+to;
+    (byKey[key]=byKey[key]||{from:orig[p.id]||"", to, piece:[]}).piece.push(p);
+  }); });
+  Object.values(byKey).forEach(m=>moves.push({ids:m.piece.map(p=>p.id), label:famLabel(m.piece), n:m.piece.length, from:m.from, to:m.to}));
+  const finalGroups={};
+  Object.keys(mem).forEach(id=>{ finalGroups[id]=[...new Set(mem[id].map(p=>p.group||"").filter(Boolean))]; });
+  return {before, after:before-removed.length, removed, moves, unplaced, finalGroups};
+}
+let optPlan=null;
+function openOptimize(){ showOpt(planOptimize(), "Agrupar por optimización de espacio"); }
+function suggestTable(tid){
+  const t=(S.tables||[]).find(x=>x.id===tid); if(!t) return;
+  const plan=planOptimize(tid);
+  if(!plan.removed.includes(tid)){ toast("No hay lugar libre en otras mesas para pasar a toda la gente de "+t.name+" sin partir familias"); return; }
+  showOpt(plan, "Sugerencia para "+t.name);
+}
+function showOpt(plan,title){
+  optPlan=plan;
+  const nameOf=id=>{ const t=(S.tables||[]).find(x=>x.id===id); return t?t.name:"(sin mesa)"; };
+  document.getElementById("optTitle").textContent="🧩 "+title;
+  const btn=document.getElementById("optApplyBtn");
+  let html="";
+  if(!plan.moves.length && !plan.removed.length){
+    html='<p class="muted" style="margin:0">No encontré mesas que se puedan juntar sin partir familias ni pasarse del máximo de lugares. Puedes subir «lugares por mesa» en Ajustes o liberar lugares.</p>';
+    btn.style.display="none";
+  } else {
+    btn.style.display="";
+    html+=`<p style="margin:0 0 6px"><b>${plan.before} → ${plan.after} mesas</b>${plan.removed.length?` (${plan.removed.length} menos)`:""}</p>
+      <p class="muted" style="margin:0 0 10px; font-size:12.5px">Las familias se mueven completas, ninguna mesa pasa de su máximo y las archivadas no se tocan. Antes de aplicar se guarda una copia por si quieres regresar.</p>`;
+    const byFrom={};
+    plan.moves.forEach(m=>{ (byFrom[m.from]=byFrom[m.from]||[]).push(m); });
+    Object.keys(byFrom).forEach(from=>{
+      const ms=byFrom[from];
+      const head=from?`<b>${esc(nameOf(from))}</b> se elimina (${ms.reduce((a,m)=>a+m.n,0)} persona${ms.reduce((a,m)=>a+m.n,0)===1?"":"s"})`:`<b>Sin asignar</b> se sientan`;
+      html+=`<div style="margin-top:10px">${head}`+ms.map(m=>{
+        const fg=plan.finalGroups[m.to]||[];
+        return `<div class="opt-move">↳ ${esc(m.label)} → <b>${esc(nameOf(m.to))}</b>${fg.length>1?` <span class="mesa-tag mix">mixta: ${esc(fg.map(tableLabel).join(" + "))}</span>`:""}</div>`;
+      }).join("")+`</div>`;
+    });
+    const empt=plan.removed.filter(id=>!byFrom[id]);
+    if(empt.length) html+=`<div style="margin-top:10px"><b>Mesas vacías que se eliminan:</b> ${empt.map(id=>esc(nameOf(id))).join(", ")}</div>`;
+  }
+  if(plan.unplaced.length) html+=`<p style="margin:12px 0 0; color:var(--danger); font-size:13px">⚠ No hay lugar para: ${esc(plan.unplaced.join(", "))} (siguen sin mesa).</p>`;
+  document.getElementById("optBody").innerHTML=html;
+  document.getElementById("optOverlay").removeAttribute("hidden");
+}
+function closeOpt(){ optPlan=null; document.getElementById("optOverlay").setAttribute("hidden",""); }
+// Deja la mesa con el grupo correcto (o "Mixta" si ahora mezcla grupos).
+function relabelTable(id){
+  const t=(S.tables||[]).find(x=>x.id===id); if(!t) return;
+  const gs=[...new Set((S.people||[]).filter(p=>p.table===id).map(p=>p.group||"").filter(Boolean))];
+  if(gs.length>1){
+    const eraAuto=t.group!=="Mixta" && String(t.name).startsWith(tableLabel(t.group));
+    t.group="Mixta"; t.groups=gs;
+    if(eraAuto){ const usados=new Set((S.tables||[]).map(x=>x.name)); let n=1; while(usados.has("Mixta "+n)) n++; t.name="Mixta "+n; }
+  } else if(t.group==="Mixta" && gs.length===1){ t.group=gs[0]; delete t.groups; }
+}
+function applyOpt(){
+  const plan=optPlan; if(!plan) return;
+  maybeSnapshot(true);
+  const people=S.people||[];
+  plan.moves.forEach(m=>{ m.ids.forEach(pid=>{ const p=people.find(x=>x.id===pid); if(p) p.table=m.to; }); });
+  S.tables=(S.tables||[]).filter(t=>!plan.removed.includes(t.id));
+  [...new Set(plan.moves.map(m=>m.to))].forEach(relabelTable);
+  save(); renderMesas(); renderGuests();
+  closeOpt();
+  toast("🧩 "+plan.before+" → "+plan.after+" mesas ✓");
+}
+
 // Hoja imprimible / PDF con el orden de invitados por mesa
 function printMesas(){
   const tables=S.tables||[];
@@ -2097,78 +2429,180 @@ header p{font-size:11px; color:#666; margin:3px 0 0; letter-spacing:.5px}
   if(!w){ alert("Permite las ventanas emergentes para poder imprimir."); return; }
   w.document.write(html); w.document.close();
 }
-function renderMesas(){
-  const tables=S.tables||[];
-  const tableIds=new Set(tables.map(t=>t.id));
-  const pool=(S.people||[]).filter(g=> !g.table || !tableIds.has(g.table));
-  document.getElementById("mesaPool").innerHTML = pool.length? pool.map(g=>chipHtml(g,false)).join("") : '<span class="muted" style="font-size:13px">¡Todos los confirmados están sentados! 🎉</span>';
-  document.getElementById("poolCount").textContent = "· "+pool.length+" personas";
-  const lista=mesaView==="lista";
-  const grid=document.getElementById("mesasGrid"), plano=document.getElementById("mesaPlano"), tg=document.getElementById("viewToggle");
-  if(grid) grid.style.display=lista?"":"none";
-  if(plano) plano.style.display=lista?"none":"";
-  if(tg) tg.textContent=lista?"🪑 Ver como plano":"📋 Ver como lista";
-  if(lista) renderMesasLista(); else renderMesasPlano();
+/* ---------- Vista de mesas: secciones por grupo, filtros y búsqueda ---------- */
+let mesaSecKeys=[];
+function secKey(t){ return t.group || "Otras"; }
+function secOrder(k){ const i=GROUPS.indexOf(k); return i>=0?i:(k==="Mixta"?90:95); }
+function mesaOcc(t){ return occCount(t); }
+function mesaFree(t){ return (+t.seats||0)-mesaOcc(t); }
+// «Incompleta»: no está archivada y aún le quedan lugares libres.
+function mesaIncompleta(t){ return !t.archived && mesaOcc(t)>0 && mesaFree(t)>0; }
+function personTableName(p){ const t=(S.tables||[]).find(x=>x.id===p.table); return t?t.name:""; }
+function toggleSec(i){ const k=mesaSecKeys[i]; mesaPrefs.collapsed[k]=!mesaPrefs.collapsed[k]; saveMesaPrefs(); renderMesas(); }
+function setAllSecs(collapsed){ mesaSecKeys.forEach(k=>{ mesaPrefs.collapsed[k]=collapsed; }); saveMesaPrefs(); renderMesas(); }
+
+function mesaTagsHtml(t){
+  let h="";
+  if(t.archived) h+=`<span class="mesa-tag arch">📦 archivada</span>`;
+  else if(mesaIncompleta(t) && mesaPrefs.resaltar) h+=`<span class="mesa-tag inc">faltan ${mesaFree(t)}</span>`;
+  if(t.group==="Mixta" && Array.isArray(t.groups)) h+=`<span class="mesa-tag mix" title="${esc(t.groups.join(" + "))}">mixta</span>`;
+  return h;
 }
-function renderMesasLista(){
-  const tables=S.tables||[];
-  document.getElementById("mesasGrid").innerHTML = tables.length? tables.map(t=>{
-    const gs=(S.people||[]).filter(g=>g.table===t.id);
-    const occ=gs.reduce((a,g)=>a+(+g.count||0),0);
-    const over=t.seats && occ>t.seats;
-    if(COLLAB){
-      return `<div class="mesa ${over?"full":""}">
-        <div class="mesa-head"><b>${esc(t.name)}</b></div>
-        <div class="mesa-cap ${over?"over":""}">${occ}${t.seats?(" / "+t.seats):""} lugares</div>
-        <div>${gs.length?gs.map(g=>chipHtml(g,true)).join(""):'<span class="muted" style="font-size:12px">Vacía</span>'}</div>
-      </div>`;
-    }
-    return `<div class="mesa ${over?"full":""}" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')">
-      <div class="mesa-head">
-        <input class="mesa-name" value="${esc(t.name)}" onchange="updTable('${t.id}','name',this.value)">
-        <button class="icon" title="Eliminar mesa" onclick="delTable('${t.id}')">🗑</button>
-      </div>
-      <div class="mesa-cap ${over?"over":""}">${occ}${t.seats?(" / "+t.seats):""} lugares
-        <input type="number" min="0" value="${t.seats||0}" style="width:46px;border:1px solid var(--line);border-radius:6px;padding:2px 4px;margin-left:4px" onchange="updTable('${t.id}','seats',this.value)" title="Capacidad de la mesa"></div>
-      <div>${gs.length?gs.map(g=>chipHtml(g,true)).join(""):'<span class="muted" style="font-size:12px">Arrastra invitados aquí</span>'}</div>
+
+function mesaCardHtml(t){
+  const gs=(S.people||[]).filter(g=>g.table===t.id);
+  const occ=gs.length;
+  const over=t.seats && occ>t.seats;
+  const inc=mesaPrefs.resaltar && mesaIncompleta(t);
+  const cls=(over?"full ":"")+(inc?"incompleta ":"")+(t.archived?"archivada":"");
+  if(COLLAB){
+    return `<div class="mesa ${cls}" data-tid="${t.id}">
+      <div class="mesa-head"><b>${esc(t.name)}</b></div>
+      <div class="mesa-cap ${over?"over":""}">${occ}${t.seats?(" / "+t.seats):""} lugares</div>
+      <div>${gs.length?gs.map(g=>chipHtml(g,true)).join(""):'<span class="muted" style="font-size:12px">Vacía</span>'}</div>
     </div>`;
-  }).join("") : '<div class="empty">Crea tu primera mesa con «+ Agregar mesa».</div>';
+  }
+  const locked=!!t.archived;
+  const drop=locked?"":`ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')"`;
+  return `<div class="mesa ${cls}" data-tid="${t.id}" ${drop}>
+    <div class="mesa-head">
+      <textarea class="mesa-name" rows="1" ${locked?"readonly":""} onfocus="fitName(this)" oninput="fitName(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" onchange="updTable('${t.id}','name',this.value)">${esc(t.name)}</textarea>
+      <button class="icon" title="${locked?"Desarchivar":"Archivar (ya quedó lista)"}" onclick="archiveTable('${t.id}',${!locked})">${locked?"📤":"📦"}</button>
+      ${locked?"":`<button class="icon" title="Eliminar mesa" onclick="delTable('${t.id}')">🗑</button>`}
+    </div>
+    <div class="mesa-cap ${over?"over":""}">${occ}${t.seats?(" / "+t.seats):""} lugares ${mesaTagsHtml(t)}
+      ${locked?"":`<input type="number" min="0" value="${t.seats||0}" style="width:46px;border:1px solid var(--line);border-radius:6px;padding:2px 4px;margin-left:4px" onchange="updTable('${t.id}','seats',this.value)" title="Capacidad de la mesa">`}</div>
+    ${t.group==="Mixta"?`<div class="muted" style="font-size:11.5px;margin:0 0 6px">${esc([...new Set(gs.map(g=>g.group).filter(Boolean))].map(tableLabel).join(" + ")||"sin gente")}</div>`:""}
+    ${inc?`<div style="margin:2px 0 6px"><button class="btn" style="font-size:11.5px;padding:3px 9px" onclick="suggestTable('${t.id}')" title="Ver si esta mesa se puede vaciar pasando a sus familias a otras">🧩 Sugerir cómo completarla</button></div>`:""}
+    <div>${gs.length?gs.map(g=>chipHtml(g,true,locked)).join(""):`<span class="muted" style="font-size:12px">${locked?"Vacía":"Arrastra invitados aquí"}</span>`}</div>
+  </div>`;
 }
-function renderMesasPlano(){
-  const tables=S.tables||[];
-  const cont=document.getElementById("mesaPlano");
-  if(!tables.length){ cont.innerHTML='<div class="empty">Crea mesas o usa «✨ Acomodo automático».</div>'; return; }
-  const SZ=300, C=SZ/2, R=116;   // tamaño contenedor, centro, radio de nombres
-  cont.innerHTML = tables.map(t=>{
-    const gs=(S.people||[]).filter(g=>g.table===t.id);
-    const occ=gs.reduce((a,g)=>a+(+g.count||0),0);
-    const over=t.seats && occ>t.seats;
-    const n=gs.length;
-    const names=gs.map((g,i)=>{
-      const ang=(-90 + i*360/Math.max(n,1))*Math.PI/180;
-      const x=C+R*Math.cos(ang), y=C+R*Math.sin(ang);
-      const cnt=(+g.count>1)?(" ×"+g.count):"";
-      if(COLLAB) return `<span class="seat-name" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px" title="${esc(g.name)}">${esc(g.name)}${cnt}</span>`;
-      return `<span class="seat-name" draggable="true" ondragstart="dragGuest(event,'${g.id}')" ondragover="nameDragOver(event,this)" ondragleave="this.classList.remove('drop-here')" ondrop="nameDrop(event,'${g.id}',this)" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px" title="${esc(g.name)} — suelta otro nombre aquí para sentarlo a su lado"><span class="x" onclick="assignGuest('${g.id}','')" title="Quitar">✕</span>${esc(g.name)}${cnt}</span>`;
-    }).join("");
-    if(COLLAB){
-      return `<div class="seat-table" style="width:${SZ}px;height:${SZ}px">
-        ${names}
-        <div class="seat-circle ${over?"over":""}">
-          <b>${esc(t.name)}</b>
-          <div class="seat-occ ${over?"over":""}">${occ}/${t.seats||"—"}</div>
-        </div>
-      </div>`;
-    }
-    return `<div class="seat-table" style="width:${SZ}px;height:${SZ}px" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')">
-      ${names}
-      <div class="seat-circle ${over?"over":""}">
-        <input class="seat-cname" value="${esc(t.name)}" title="${esc(t.name)}" onchange="updTable('${t.id}','name',this.value)">
-        <div class="seat-occ ${over?"over":""}">${occ}/${t.seats||"—"}</div>
-        <button class="icon seat-del" title="Eliminar mesa" onclick="delTable('${t.id}')">🗑</button>
+
+function mesaSeatHtml(t){
+  const SZ=300, C=SZ/2, R=116;
+  const gs=(S.people||[]).filter(g=>g.table===t.id);
+  const occ=gs.length;
+  const over=t.seats && occ>t.seats;
+  const inc=mesaPrefs.resaltar && mesaIncompleta(t);
+  const locked=!!t.archived;
+  const n=gs.length;
+  const names=gs.map((g,i)=>{
+    const ang=(-90 + i*360/Math.max(n,1))*Math.PI/180;
+    const x=C+R*Math.cos(ang), y=C+R*Math.sin(ang);
+    const cnt=(+g.count>1)?(" ×"+g.count):"";
+    const pos=`left:${x.toFixed(0)}px;top:${y.toFixed(0)}px`;
+    if(COLLAB || locked) return `<span class="seat-name" style="${pos}" title="${esc(g.name)}">${esc(g.name)}${cnt}</span>`;
+    return `<span class="seat-name" draggable="true" ondragstart="dragGuest(event,'${g.id}')" ondragover="nameDragOver(event,this)" ondragleave="this.classList.remove('drop-here')" ondrop="nameDrop(event,'${g.id}',this)" style="${pos}" title="${esc(g.name)} — suelta otro nombre aquí para sentarlo a su lado"><span class="x" onclick="assignGuest('${g.id}','',true)" title="Quitar (solo a esta persona)">✕</span>${esc(g.name)}${cnt}</span>`;
+  }).join("");
+  const cc=(over?"over ":"")+(inc?"incompleta":"");
+  const occTxt=`<div class="seat-occ ${over?"over":""}">${occ}/${t.seats||"—"}${t.archived?" 📦":""}</div>`;
+  if(COLLAB){
+    return `<div class="seat-table ${t.archived?"archivada":""}" data-tid="${t.id}" style="width:${SZ}px;height:${SZ}px">${names}
+      <div class="seat-circle ${cc}"><b>${esc(t.name)}</b>${occTxt}</div></div>`;
+  }
+  const drop=locked?"":`ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'${t.id}')"`;
+  return `<div class="seat-table ${locked?"archivada":""}" data-tid="${t.id}" style="width:${SZ}px;height:${SZ}px" ${drop}>${names}
+    <div class="seat-circle ${cc}">
+      <textarea class="seat-cname" rows="1" oninput="fitName(this)" title="${esc(t.name)}" ${locked?"readonly":""} onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}" onchange="updTable('${t.id}','name',this.value)">${esc(t.name)}</textarea>
+      ${occTxt}
+      ${inc?`<div class="mesa-tag inc" style="margin:2px 0 0">faltan ${mesaFree(t)}</div>`:""}
+      <div class="seat-btns">
+        ${inc?`<button class="icon seat-del" title="Sugerir cómo completarla" onclick="suggestTable('${t.id}')">🧩</button>`:""}
+        <button class="icon seat-del" title="${locked?"Desarchivar":"Archivar (ya quedó lista)"}" onclick="archiveTable('${t.id}',${!locked})">${locked?"📤":"📦"}</button>
+        ${locked?"":`<button class="icon seat-del" title="Eliminar mesa" onclick="delTable('${t.id}')">🗑</button>`}
       </div>
+    </div>
+  </div>`;
+}
+
+function renderMesas(){
+  const all=S.tables||[];
+  const tableIds=new Set(all.map(t=>t.id));
+  const pool=(S.people||[]).filter(g=> !g.table || !tableIds.has(g.table));
+  const verArch=COLLAB || mesaPrefs.verArch;
+  // ----- Sin asignar -----
+  let poolShown=pool;
+  if(mesaPrefs.group) poolShown=pool.filter(g=>(g.group||"Otras")===mesaPrefs.group || tableAcceptsKey(mesaPrefs.group,g.group));
+  document.getElementById("mesaPool").innerHTML = poolShown.length? poolShown.map(g=>chipHtml(g,false)).join("") : '<span class="muted" style="font-size:13px">¡Todos los confirmados están sentados! 🎉</span>';
+  document.getElementById("poolCount").textContent = "· "+pool.length+" persona"+(pool.length===1?"":"s");
+  // ----- Resumen -----
+  const activas=all.filter(t=>!t.archived), arch=all.filter(t=>t.archived);
+  const libres=activas.reduce((a,t)=>a+Math.max(0,mesaFree(t)),0);
+  const inc=activas.filter(mesaIncompleta).length;
+  const total=(S.people||[]).length;
+  document.getElementById("mesaSummary").textContent =
+    `${total} confirmados · ${activas.length} mesa${activas.length===1?"":"s"} por terminar`+(arch.length?` · ${arch.length} archivada${arch.length===1?"":"s"}`:"")+` · ${libres} lugar${libres===1?"":"es"} libre${libres===1?"":"s"}`+(inc?` · ${inc} incompleta${inc===1?"":"s"}`:"");
+  // ----- Controles -----
+  const q=id=>document.getElementById(id);
+  q("fLibres").checked=!!mesaPrefs.soloLibres; q("fResaltar").checked=!!mesaPrefs.resaltar; q("fArch").checked=!!mesaPrefs.verArch; q("fFam").checked=!!mesaPrefs.familia;
+  const keysAll=[...new Set(all.map(secKey))].sort((a,b)=>secOrder(a)-secOrder(b)||a.localeCompare(b));
+  const gf=q("mesaGroupFilter");
+  if(mesaPrefs.group && !keysAll.includes(mesaPrefs.group)) mesaPrefs.group="";
+  gf.innerHTML='<option value="">Todos los grupos</option>'+keysAll.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join("");
+  gf.value=mesaPrefs.group;
+  // ----- Mesas visibles -----
+  let vis=all.filter(t=>verArch || !t.archived);
+  if(mesaPrefs.group) vis=vis.filter(t=>secKey(t)===mesaPrefs.group);
+  if(mesaPrefs.soloLibres) vis=vis.filter(t=>mesaFree(t)>0);
+  const lista=mesaView==="lista";
+  const tg=q("viewToggle"); if(tg) tg.textContent=lista?"🪑 Ver como plano":"📋 Ver como lista";
+  const grid=q("mesasGrid"), plano=q("mesaPlano");
+  plano.innerHTML=""; grid.innerHTML="";
+  const target=lista?grid:plano;
+  if(!all.length){ target.innerHTML='<div class="empty">Crea mesas o usa «✨ Reagrupar por grupos».</div>'; mesaSecKeys=[]; return; }
+  if(!vis.length){ target.innerHTML='<div class="empty">'+(arch.length && !verArch?"Todas las mesas están archivadas 🎉 — marca «Ver archivadas» para verlas.":"Ninguna mesa cumple con los filtros.")+'</div>'; mesaSecKeys=[]; return; }
+  const keys=[...new Set(vis.map(secKey))].sort((a,b)=>secOrder(a)-secOrder(b)||a.localeCompare(b));
+  mesaSecKeys=keys;
+  const toolbar=keys.length>1?`<div style="margin-top:10px;font-size:12.5px"><a href="#" onclick="setAllSecs(true);return false" style="color:var(--gold-deep)">Contraer todo</a> · <a href="#" onclick="setAllSecs(false);return false" style="color:var(--gold-deep)">Expandir todo</a></div>`:"";
+  target.innerHTML=toolbar+keys.map((k,i)=>{
+    const ts=vis.filter(t=>secKey(t)===k);
+    const act=ts.filter(t=>!t.archived);
+    const people=ts.reduce((a,t)=>a+mesaOcc(t),0);
+    const free=act.reduce((a,t)=>a+Math.max(0,mesaFree(t)),0);
+    const incN=act.filter(mesaIncompleta).length;
+    const full=act.filter(t=>mesaOcc(t)>0 && mesaFree(t)<=0).length;
+    const collapsed=!!mesaPrefs.collapsed[k];
+    const stats=`${ts.length} mesa${ts.length===1?"":"s"} · ${people} persona${people===1?"":"s"}`+(free?` · ${free} libre${free===1?"":"s"}`:"")+(incN?` · ${incN} incompleta${incN===1?"":"s"}`:"");
+    const btn=(!COLLAB && full)?`<button class="btn" onclick="event.stopPropagation();archiveFullOf(${i})" title="Archiva las mesas de este grupo que ya están llenas">📦 Archivar completas (${full})</button>`:"";
+    const body=lista?`<div class="mesas-grid">${ts.map(mesaCardHtml).join("")}</div>`:`<div class="seat-plano">${ts.map(mesaSeatHtml).join("")}</div>`;
+    return `<div class="mesa-sec ${collapsed?"collapsed":""}">
+      <div class="mesa-sec-head" onclick="toggleSec(${i})"><span class="arrow">${collapsed?"▶":"▼"}</span><b>${esc(k)}</b><span class="stats">${stats}</span>${btn}</div>
+      <div class="mesa-sec-body">${body}</div>
     </div>`;
   }).join("");
+  renderMesaFound();
+  document.querySelectorAll("textarea.mesa-name,textarea.seat-cname").forEach(fitName);
+}
+function fitName(el){ el.style.height="auto"; el.style.height=el.scrollHeight+"px"; }
+// ¿El filtro de grupo (clave de sección) incluye a esta persona? Sirve para "Sin asignar" cuando el filtro es una mesa mixta.
+function tableAcceptsKey(key,group){ return key==="Mixta" ? false : key===group; }
+
+/* ---------- Buscador «¿Dónde está…?» ---------- */
+function renderMesaFound(){
+  const box=document.getElementById("mesaFound"); if(!box) return;
+  const inp=document.getElementById("mesaSearch");
+  const term=foldAccents(inp.value||"").toLowerCase().trim();
+  if(!term){ box.innerHTML=""; return; }
+  const people=(S.people||[]).filter(p=>foldAccents(p.name||"").toLowerCase().includes(term)).slice(0,8);
+  if(!people.length){ box.innerHTML='<div class="found-row muted">Nadie con ese nombre entre los confirmados.</div>'; return; }
+  const tables=(S.tables||[]).filter(t=>!t.archived);
+  box.innerHTML=people.map(p=>{
+    const t=(S.tables||[]).find(x=>x.id===p.table);
+    const donde=t?`en <a href="#" onclick="focusTable('${t.id}');return false">${esc(t.name)}</a>${t.archived?' <span class="mesa-tag arch">archivada</span>':""}`:'<span style="color:var(--danger)">sin mesa</span>';
+    const mover=(!COLLAB && !(t&&t.archived))?`<select onchange="if(this.value!==''){ movePeople('${p.id}',this.value==='__none'?'':this.value); }"><option value="">mover a…</option>${tables.filter(x=>!t||x.id!==t.id).map(x=>`<option value="${x.id}">${esc(x.name)} (${Math.max(0,mesaFree(x))} libres)</option>`).join("")}${t?'<option value="__none">— Sin asignar —</option>':""}</select>`:"";
+    return `<div class="found-row"><b>${esc(p.name)}</b><span class="muted" style="font-size:12px">${esc(p.group||"sin grupo")}</span> ${donde} ${mover}</div>`;
+  }).join("");
+}
+// Lleva a la mesa: quita filtros que la esconden, expande su sección y la resalta.
+function focusTable(id){
+  const t=(S.tables||[]).find(x=>x.id===id); if(!t) return;
+  if(t.archived) mesaPrefs.verArch=true;
+  if(mesaPrefs.group && mesaPrefs.group!==secKey(t)) mesaPrefs.group="";
+  if(mesaPrefs.soloLibres && mesaFree(t)<=0) mesaPrefs.soloLibres=false;
+  mesaPrefs.collapsed[secKey(t)]=false;
+  saveMesaPrefs(); renderMesas();
+  const el=document.querySelector(`[data-tid="${id}"]`);
+  if(el){ el.scrollIntoView({behavior:"smooth",block:"center"}); el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse"); }
 }
 
 /* ---------- Cronograma ---------- */
@@ -2327,8 +2761,8 @@ let notesT;
 notesEl.addEventListener("input",()=>{ S.notes=notesEl.value; clearTimeout(notesT); notesT=setTimeout(save,500); });
 
 /* ---------- Ajustes ---------- */
-function fillSettings(){ const s=S.settings; sName1.value=s.name1||""; sName2.value=s.name2||""; sDate.value=s.date||""; sPlace.value=s.place||""; sBudget.value=s.budget||""; sPin.value=s.pin||""; sRsvpDeadline.value=s.rsvpDeadline||"2026-08-31"; }
-function saveSettings(){ S.settings={name1:sName1.value.trim(),name2:sName2.value.trim(),date:sDate.value,place:sPlace.value.trim(),budget:+sBudget.value||0,pin:sPin.value.trim(),rsvpDeadline:sRsvpDeadline.value||"2026-08-31"}; if(S.settings.pin) sessionStorage.setItem("nupcia_unlocked","1"); save(); renderHeader(); renderDash(); renderBudget(); renderGuests(); toast("Datos guardados ✓"); }
+function fillSettings(){ const s=S.settings; sName1.value=s.name1||""; sName2.value=s.name2||""; sDate.value=s.date||""; sPlace.value=s.place||""; sBudget.value=s.budget||""; sPin.value=s.pin||""; sRsvpDeadline.value=s.rsvpDeadline||"2026-08-31"; sSeats.value=s.seatsPerTable||10; }
+function saveSettings(){ S.settings=Object.assign({},S.settings,{name1:sName1.value.trim(),name2:sName2.value.trim(),date:sDate.value,place:sPlace.value.trim(),budget:+sBudget.value||0,pin:sPin.value.trim(),rsvpDeadline:sRsvpDeadline.value||"2026-08-31",seatsPerTable:Math.max(1,parseInt(sSeats.value,10)||10)}); if(S.settings.pin) sessionStorage.setItem("nupcia_unlocked","1"); save(); renderHeader(); renderDash(); renderBudget(); renderGuests(); toast("Datos guardados ✓"); }
 function exportData(){ const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"}); const a=document.createElement("a"); const tag=(S.settings.name1||"boda").toLowerCase().replace(/[^a-z0-9]/g,""); a.href=URL.createObjectURL(blob); a.download=`nupcia-${tag}-${new Date().toISOString().slice(0,10)}.json`; a.click(); toast("Respaldo descargado ✓"); }
 function importData(input){
   const f=input.files && input.files[0]; input.value="";
@@ -2365,7 +2799,7 @@ function renderSyncKey(){
 }
 
 /* ---------- Render maestro ---------- */
-function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderCredit(); renderBudget(); renderHouse(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); renderGameLinks(); maybePinGate(); }
+function renderAll(){ renderHeader(); renderDash(); renderSavings(); renderCredit(); renderBudget(); renderHouse(); renderGuests(); renderPeopleList(); renderMesas(); renderTasks(); renderSchedule(); renderParticipants(); renderVendors(); fillSettings(); notesEl.value=S.notes||""; renderSyncKey(); renderSnapshots(); renderGameLinks(); updateSaveUI(); maybePinGate(); }
 
 window.addEventListener("offline",()=>setStatus("offline","Sin conexión — se guardará al volver"));
 window.addEventListener("online",()=>{
@@ -2391,6 +2825,18 @@ function closeMensaje(){
 
 startApp();
 </script>
+<!-- Vista previa de "Agrupar por optimización de espacio" -->
+<div class="msg-overlay" id="optOverlay" hidden onclick="if(event.target===this)closeOpt()">
+  <div class="msg-card" style="max-width:620px; max-height:84vh; overflow:auto">
+    <h3 id="optTitle" style="font-size:18px"></h3>
+    <div id="optBody"></div>
+    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end; flex-wrap:wrap">
+      <button class="btn" onclick="closeOpt()">Cancelar</button>
+      <button class="btn primary" id="optApplyBtn" onclick="applyOpt()">Aplicar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal mensaje invitado -->
 <div class="msg-overlay" id="msgOverlay" hidden onclick="if(event.target===this)closeMensaje()">
   <div class="msg-card">
