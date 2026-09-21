@@ -185,6 +185,10 @@
   .filters select{border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-family:inherit; font-size:13.5px; cursor:pointer; background:#fff}
   .filters .count-lbl{font-size:13px; color:var(--muted); margin-left:auto}
 
+  .mesa-stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:10px 0 14px}
+  .mesa-stats .stat{padding:11px 14px}
+  .mesa-stats .stat .v{font-size:24px; margin-top:2px}
+  .mesa-stats .stat.warn .v{color:var(--danger)}
   .add-person{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; padding:10px; background:var(--blush); border:1px solid var(--line); border-radius:12px}
   .add-person input{flex:2 1 200px; border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-family:inherit; font-size:14px; min-width:0}
   .add-person select{flex:1 1 170px; border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-family:inherit; font-size:13.5px; background:#fff; min-width:0}
@@ -604,7 +608,7 @@
         <label class="chk edit-only"><input type="checkbox" id="fFam" onchange="setMesaPref('familia',this.checked)"> Mover familia completa</label>
       </div>
       <div id="mesaFound"></div>
-      <div class="muted" id="mesaSummary" style="font-size:12.5px; margin:6px 0 10px"></div>
+      <div class="cards mesa-stats" id="mesaStats"></div>
       <div><b id="poolTitle">Sin asignar</b> <span class="muted" id="poolCount" style="font-size:13px"></span> <span class="muted" id="poolHint" style="font-size:12px">· arrastra un nombre a una mesa</span></div>
       <div class="pool" id="mesaPool" ondragover="mesaDragOver(event,this)" ondragleave="this.classList.remove('dragover')" ondrop="mesaDrop(event,'')"></div>
       <div id="mesasGrid"></div>
@@ -2022,8 +2026,12 @@ function setPersonGroup(id,group){
   save(); renderPeopleList(); renderMesas(); renderGuests();
   toast("Grupo de "+p.name+" actualizado ✓");
 }
+// Se pueden quitar las agregadas a mano y las «huérfanas» (su invitación ya no existe).
+// Las demás dependen de la confirmación de su invitación.
+function personOrphan(p){ return !!p.invId && !(S.guests||[]).some(g=>g.id===p.invId); }
+function personRemovable(p){ return !!p.manual || personOrphan(p); }
 function delPerson(id){
-  const p=(S.people||[]).find(x=>x.id===id); if(!p || !p.manual) return;
+  const p=(S.people||[]).find(x=>x.id===id); if(!p || !personRemovable(p)) return;
   if(!confirm("¿Quitar a "+p.name+" de la lista?")) return;
   S.people=S.people.filter(x=>x.id!==id);
   save(); renderPeopleList(); renderMesas(); renderGuests(); renderDash();
@@ -2058,14 +2066,14 @@ function renderPeopleList(){
 
   const tb=document.querySelector("#peopleTbl tbody");
   tb.innerHTML = list.length ? list.map(p=>`<tr>
-    <td>${esc(p.name)}${p.manual?'<span class="tag-manual" title="Agregada a mano">a mano</span>':""}</td>
+    <td>${esc(p.name)}${p.manual?'<span class="tag-manual" title="Agregada a mano">a mano</span>':personOrphan(p)?'<span class="tag-manual" style="background:#fbe9e3;color:#b4604d" title="Su invitación ya no existe">sin invitación</span>':""}</td>
     <td>${COLLAB?esc(p.group||"—"):`<select class="pl-group" onchange="setPersonGroup('${p.id}',this.value)">
         <option value="" ${!p.group?"selected":""}>— Selecciona —</option>
         ${GROUPS.map(gr=>`<option value="${esc(gr)}" ${p.group===gr?"selected":""}>${esc(gr)}</option>`).join("")}
         ${p.group && !GROUPS.includes(p.group)?`<option value="${esc(p.group)}" selected>${esc(p.group)}</option>`:""}
       </select>`}${p.groupCustom?'<span class="tag-manual" title="Su grupo es distinto al de su invitación">editado</span>':""}</td>
     <td class="muted">${esc(p.invName)}</td>
-    <td class="edit-only" style="width:36px">${p.manual&&!COLLAB?`<button class="icon" title="Quitar de la lista" onclick="delPerson('${p.id}')">✕</button>`:""}</td>
+    <td class="edit-only" style="width:36px">${personRemovable(p)&&!COLLAB?`<button class="icon" title="${p.manual?"Quitar de la lista":"Esta persona pertenece a una invitación que ya no existe: quitarla"}" onclick="delPerson('${p.id}')">✕</button>`:""}</td>
   </tr>`).join("") : `<tr><td colspan="4"><div class="empty">${people.length?"Nadie coincide con el filtro.":"Aún no hay invitados confirmados."}</div></td></tr>`;
 
   const lbl=document.getElementById("plCountLbl");
@@ -2597,8 +2605,15 @@ function renderMesas(){
   const libres=activas.reduce((a,t)=>a+Math.max(0,mesaFree(t)),0);
   const inc=activas.filter(mesaIncompleta).length;
   const total=(S.people||[]).length;
-  document.getElementById("mesaSummary").textContent =
-    `${total} confirmados · ${activas.length} mesa${activas.length===1?"":"s"} por terminar`+(arch.length?` · ${arch.length} archivada${arch.length===1?"":"s"}`:"")+` · ${libres} lugar${libres===1?"":"es"} libre${libres===1?"":"s"}`+(inc?` · ${inc} incompleta${inc===1?"":"s"}`:"");
+  const seatsAct=activas.reduce((a,t)=>a+(+t.seats||0),0);
+  const sentados=total-pool.length;
+  const pasadas=activas.filter(t=>mesaFree(t)<0).length;
+  const tile=(k,v,meta,extra)=>`<div class="stat ${extra||""}"><div class="k">${k}</div><div class="v">${v}</div><div class="meta">${meta}</div></div>`;
+  document.getElementById("mesaStats").innerHTML =
+    tile("Mesas", activas.length, arch.length?`${arch.length} archivada${arch.length===1?"":"s"} · ${all.length} en total`:"por terminar")
+   +tile("Lugares vacíos", libres, `de ${seatsAct} lugares`+(inc?` · ${inc} mesa${inc===1?"":"s"} incompleta${inc===1?"":"s"}`:"")+(pasadas?` · ⚠ ${pasadas} pasada${pasadas===1?"":"s"} de cupo`:""), (pasadas?"warn":""))
+   +tile("Sentados", sentados, `de ${total} confirmados`)
+   +tile("Sin asignar", pool.length, pool.length?"aún sin mesa":"todos con mesa 🎉", pool.length?"warn":"");
   // ----- Controles -----
   const q=id=>document.getElementById(id);
   q("fLibres").checked=!!mesaPrefs.soloLibres; q("fResaltar").checked=!!mesaPrefs.resaltar; q("fArch").checked=!!mesaPrefs.verArch; q("fFam").checked=!!mesaPrefs.familia;
@@ -2818,6 +2833,19 @@ function upd(list,id,field,val){
   save(); renderHeader(); renderDash();
 }
 function del(list,id){
+  if(list==="guests"){
+    const ppl=(S.people||[]).filter(p=>p.invId===id);
+    const conf=ppl.filter(p=>!p.manual).length, man=ppl.length-conf;
+    let msg="¿Eliminar este invitado?";
+    if(conf) msg+="\n\nTambién se quitarán "+conf+" persona"+(conf===1?"":"s")+" confirmada"+(conf===1?"":"s")+" de esta invitación de la lista y de las mesas.";
+    if(man) msg+="\n"+man+" persona"+(man===1?"":"s")+" agregada"+(man===1?"":"s")+" a mano se conserva"+(man===1?"":"n")+" sin invitación.";
+    if(!confirm(msg)) return;
+    S.people=(S.people||[]).filter(p=>p.invId!==id || p.manual);
+    S.people.forEach(p=>{ if(p.invId===id){ p.invId=""; delete p.groupCustom; } });
+    S.guests=(S.guests||[]).filter(x=>x.id!==id);
+    save(); renderDash(); renderHeader(); renderPeopleList(); renderMesas();
+    return;
+  }
   const labels={budget:"este gasto",savings:"este ahorrante",creditCards:"esta tarjeta",houseExpenses:"este gasto de la casa",guests:"este invitado",tasks:"esta tarea",vendors:"este proveedor",participants:"este participante",schedule:"este momento"};
   if(confirm("¿Eliminar "+(labels[list]||"este elemento")+"?")){ S[list]=S[list].filter(x=>x.id!==id); save(); renderDash(); renderHeader(); }
 }
