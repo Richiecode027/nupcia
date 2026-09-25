@@ -1019,7 +1019,7 @@ function subscribeConfirmaciones(){
 // en Invitados. Antes era texto libre y variantes como "Familia materna novio"
 // vs "Familia materna del novio" contaban como grupos DISTINTOS (se sentaban en
 // mesas separadas sin darse cuenta). El combo evita que vuelva a pasar.
-const GROUPS=["Familia paterna de la novia","Familia materna de la novia","Familia paterna del novio","Familia materna del novio","Amigos de la novia","Amigos del novio","Amigos de iglesia de la novia","Amigos de iglesia del novio","Banda","Política"];
+const GROUPS=["Familia paterna de la novia","Familia materna de la novia","Familia paterna del novio","Familia materna del novio","Amigos de la novia","Amigos del novio","Iglesia","Banda","Política"];
 // Variantes ya guardadas (mal escritas / abreviadas) → su forma oficial. Se usa
 // una sola vez para poner al día los datos existentes (migrateGroups).
 const GROUP_ALIASES={
@@ -1033,12 +1033,13 @@ const GROUP_ALIASES={
   "amigos novia":"Amigos de la novia",
   "amigos del novio":"Amigos del novio",
   "amigos novio":"Amigos del novio",
-  "amigos de iglesia de la novia":"Amigos de iglesia de la novia",
-  "amigos de iglesia novia":"Amigos de iglesia de la novia",
-  "amigos iglesia novia":"Amigos de iglesia de la novia",
-  "amigos de iglesia del novio":"Amigos de iglesia del novio",
-  "amigos de iglesia novio":"Amigos de iglesia del novio",
-  "amigos iglesia novio":"Amigos de iglesia del novio",
+  "amigos de iglesia de la novia":"Iglesia",
+  "amigos de iglesia novia":"Iglesia",
+  "amigos iglesia novia":"Iglesia",
+  "amigos de iglesia del novio":"Iglesia",
+  "amigos de iglesia novio":"Iglesia",
+  "amigos iglesia novio":"Iglesia",
+  "iglesia":"Iglesia", "amigos de iglesia":"Iglesia", "amigos iglesia":"Iglesia",
   "banda":"Banda",
   "politica":"Política", "política":"Política"
 };
@@ -1062,8 +1063,7 @@ const SHORTMESA={
   "Familia materna del novio":"Fam. materna novio",
   "Amigos de la novia":"Amigos novia",
   "Amigos del novio":"Amigos novio",
-  "Amigos de iglesia de la novia":"Iglesia novia",
-  "Amigos de iglesia del novio":"Iglesia novio",
+  "Iglesia":"Iglesia",
   "Banda":"Banda", "Política":"Política"
 };
 function tableLabel(group){ return SHORTMESA[group] || group || "Mesa"; }
@@ -2187,6 +2187,16 @@ function saveMesaPrefs(){ try{ const {resaltar,verArch,familia,collapsed}=mesaPr
 function setMesaPref(k,v){ mesaPrefs[k]=v; saveMesaPrefs(); renderMesas(); }
 
 function addTable(){ if(!S.tables) S.tables=[]; S.tables.push({id:uid(),name:"Mesa "+(S.tables.length+1),seats:seatsPerTable()}); save(); renderMesas(); }
+// Botón "+ Agregar mesa en este grupo" en cada sección: crea la mesa ya puesta en
+// ese grupo (mismo nombre automático que usa el resto de la app para ese grupo).
+function addTableInGroup(group){
+  if(!group || group==="Mixta" || group==="Otras") return;
+  const n=(S.tables||[]).filter(t=>t.group===group).length+1;
+  S.tables=S.tables||[];
+  S.tables.push({id:uid(), name:tableLabel(group)+" "+n, seats:seatsPerTable(), group});
+  save(); renderMesas();
+  toast("Mesa agregada a «"+group+"» ✓");
+}
 
 // Aplica «lugares por mesa» (Ajustes) a las mesas ya creadas. No toca las archivadas
 // ni las que ya tienen más gente que ese número (se avisa cuántas fueron).
@@ -2795,10 +2805,11 @@ function renderMesas(){
     const full=act.filter(t=>mesaOcc(t)>0 && mesaFree(t)<=0).length;
     const collapsed=!!mesaPrefs.collapsed[k];
     const stats=`${ts.length} mesa${ts.length===1?"":"s"} · ${people} persona${people===1?"":"s"}`+(free?` · ${free} libre${free===1?"":"s"}`:"")+(incN?` · ${incN} incompleta${incN===1?"":"s"}`:"");
+    const addBtn=(!COLLAB && k!=="Mixta" && k!=="Otras")?`<button class="btn" onclick="event.stopPropagation();addTableInGroup('${esc(k)}')" title="Crea una mesa nueva ya puesta en este grupo">+ Agregar mesa en este grupo</button>`:"";
     const btn=(!COLLAB && full)?`<button class="btn" onclick="event.stopPropagation();archiveFullOf(${i})" title="Archiva las mesas de este grupo que ya están llenas">📦 Archivar completas (${full})</button>`:"";
     const body=lista?`<div class="mesas-grid">${ts.map(mesaCardHtml).join("")}</div>`:`<div class="seat-plano">${ts.map(mesaSeatHtml).join("")}</div>`;
     return `<div class="mesa-sec ${collapsed?"collapsed":""}">
-      <div class="mesa-sec-head" onclick="toggleSec(${i})"><span class="arrow">${collapsed?"▶":"▼"}</span><b>${esc(k)}</b><span class="stats">${stats}</span>${btn}</div>
+      <div class="mesa-sec-head" onclick="toggleSec(${i})"><span class="arrow">${collapsed?"▶":"▼"}</span><b>${esc(k)}</b><span class="stats">${stats}</span>${addBtn}${btn}</div>
       <div class="mesa-sec-body">${body}</div>
     </div>`;
   }).join("");
