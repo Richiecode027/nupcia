@@ -564,7 +564,7 @@
         <button class="btn primary" onclick="addPerson()">Agregar</button>
       </div>
       <div class="filters">
-        <input class="search" id="plSearch" placeholder="🔍 Buscar por nombre…" oninput="renderPeopleList()">
+        <input class="search" id="plSearch" placeholder="🔍 Buscar por nombre o mesa…" oninput="renderPeopleList()">
         <span class="count-lbl" id="plCountLbl"></span>
       </div>
       <div class="tfilter" id="plGroupChips" style="margin-bottom:14px"></div>
@@ -573,6 +573,7 @@
           <thead><tr>
             <th style="cursor:pointer" onclick="setPlSort('name')" id="plThName">Nombre</th>
             <th style="cursor:pointer" onclick="setPlSort('group')" id="plThGroup">Grupo</th>
+            <th style="cursor:pointer" onclick="setPlSort('mesa')" id="plThMesa">Mesa</th>
             <th style="cursor:pointer" onclick="setPlSort('inv')" id="plThInv">Invitación</th>
             <th class="edit-only"></th>
           </tr></thead>
@@ -2047,22 +2048,25 @@ function renderPeopleList(){
   const people=S.people||[];
   const search=searchNorm((document.getElementById("plSearch")?.value||"").trim());
   const invName=id=>{ const g=(S.guests||[]).find(x=>x.id===id); return g?g.name:""; };
+  const tableById={}; (S.tables||[]).forEach(t=>{ tableById[t.id]=t; });
   let list=people.filter(p=>{
     if(plGroupFilter.size && !plGroupFilter.has(p.group)) return false;
-    if(search && !searchNorm(p.name).includes(search)) return false;
+    if(search && !searchNorm(p.name).includes(search) && !searchNorm((tableById[p.table]||{}).name||"").includes(search)) return false;
     return true;
-  }).map(p=>({...p, invName:invName(p.invId)}));
+  }).map(p=>({...p, invName:invName(p.invId), mesaName:(tableById[p.table]||{}).name||""}));
 
-  const collator=new Intl.Collator("es");
+  const collator=new Intl.Collator("es",{numeric:true});   // "Iglesia 2" antes que "Iglesia 10"
+  const keyOf=(p)=> plSort==="group"?(p.group||"") : plSort==="inv"?(p.invName||"") : plSort==="mesa"?(p.mesaName||"") : (p.name||"");
   list.sort((a,b)=>{
-    const av=plSort==="group"?(a.group||""):plSort==="inv"?(a.invName||""):(a.name||"");
-    const bv=plSort==="group"?(b.group||""):plSort==="inv"?(b.invName||""):(b.name||"");
-    return plSortDir*collator.compare(av,bv);
+    // en el orden por mesa, las personas sin mesa van siempre al final
+    if(plSort==="mesa" && !a.mesaName !== !b.mesaName) return a.mesaName ? -1 : 1;
+    return plSortDir*collator.compare(keyOf(a),keyOf(b));
   });
 
   const arrow=f=> plSort===f ? (plSortDir===1?" ▲":" ▼") : "";
   document.getElementById("plThName").textContent="Nombre"+arrow("name");
   document.getElementById("plThGroup").textContent="Grupo"+arrow("group");
+  document.getElementById("plThMesa").textContent="Mesa"+arrow("mesa");
   document.getElementById("plThInv").textContent="Invitación"+arrow("inv");
 
   const tb=document.querySelector("#peopleTbl tbody");
@@ -2073,9 +2077,10 @@ function renderPeopleList(){
         ${GROUPS.map(gr=>`<option value="${esc(gr)}" ${p.group===gr?"selected":""}>${esc(gr)}</option>`).join("")}
         ${p.group && !GROUPS.includes(p.group)?`<option value="${esc(p.group)}" selected>${esc(p.group)}</option>`:""}
       </select>`}${p.groupCustom?'<span class="tag-manual" title="Su grupo es distinto al de su invitación">editado</span>':""}</td>
+    <td>${p.mesaName?esc(p.mesaName)+((tableById[p.table]||{}).archived?' <span class="mesa-tag arch" title="Mesa archivada">📦</span>':""):'<span class="muted">Sin mesa</span>'}</td>
     <td class="muted">${esc(p.invName)}</td>
     <td class="edit-only" style="width:36px">${personRemovable(p)&&!COLLAB?`<button class="icon" title="${p.manual?"Quitar de la lista":"Esta persona pertenece a una invitación que ya no existe: quitarla"}" onclick="delPerson('${p.id}')">✕</button>`:""}</td>
-  </tr>`).join("") : `<tr><td colspan="4"><div class="empty">${people.length?"Nadie coincide con el filtro.":"Aún no hay invitados confirmados."}</div></td></tr>`;
+  </tr>`).join("") : `<tr><td colspan="5"><div class="empty">${people.length?"Nadie coincide con el filtro.":"Aún no hay invitados confirmados."}</div></td></tr>`;
 
   const lbl=document.getElementById("plCountLbl");
   if(lbl) lbl.textContent=`Mostrando ${list.length} de ${people.length}`;
@@ -2751,6 +2756,7 @@ function mesaSeatHtml(t){
 }
 
 function renderMesas(){
+  renderPeopleList();   // la columna "Mesa" de Lista de invitados sigue al nombre/asignación de cada mesa
   const all=S.tables||[];
   const tableIds=new Set(all.map(t=>t.id));
   const pool=(S.people||[]).filter(g=> !g.table || !tableIds.has(g.table));
